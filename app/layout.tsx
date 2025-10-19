@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="bg-zinc-950 text-white">
       <body
-        className={`${inter.className} antialiased`}
+        className={`${inter.className} antialiased fancy-ui`}
       >
         {children}
       </body>

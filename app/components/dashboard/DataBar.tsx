@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from "react";
-import { Drone, Search } from "lucide-react";
+import { Drone, Search, Layers } from "lucide-react";
 import { subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket สำหรับอัปเดตโดรนแบบเรียลไทม์
 
 interface DroneData {
@@ -54,12 +54,11 @@ export default function DataBar({ onClose }: { onClose?: () => void }) {
         right: "88px",
       }}
       className="absolute z-[1100] w-[395px] max-w-[90vw]
-                 rounded-2xl bg-zinc-900/90 backdrop-blur border border-zinc-700
-                 p-3 shadow-2xl text-white transition-all flex flex-col font-prompt"
+                 rounded-2xl p-3 text-white transition-all flex flex-col font-prompt ui-card ui-slide-from-toolbar"
     >
       {/* Header */}
-      <div className="mb-2 flex items-center justify-between rounded-xl bg-zinc-800 px-4 py-2 text-amber-400 font-bold tracking-wider">
-        <span>DATA</span>
+      <div className="mb-2 flex items-center justify-between rounded-xl px-4 py-2 text-amber-400 font-bold tracking-wider ui-header">
+        <span className="flex items-center gap-2"><Layers size={16} /> DATA</span>
         {onClose && (
           <button
             onClick={onClose}

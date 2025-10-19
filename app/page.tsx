@@ -8,8 +8,8 @@ const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolb
 const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
-const FollowDroneUpdater = dynamic(() => import("@/app/components/LeafletMap/FollowDroneUpdater"), { ssr: false });
 const MarkSidebar = dynamic(() => import("@/app/components/dashboard/MarkSidebar"), { ssr: false });
+const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 
 
 export default function HomePage() {
@@ -28,6 +28,7 @@ export default function HomePage() {
   // state
   const [openHome, setOpenHome] = useState(false);
   const [openData, setOpenData] = useState(false);
+  const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
   const [showMark, setShowMark] = useState(false);
@@ -35,6 +36,7 @@ export default function HomePage() {
   { id: string; name: string; color: string; pos: [number, number]; radius: number }[]
 >([]);
   const [isMarking, setIsMarking] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
 
 
   useEffect(() => {
@@ -43,6 +45,36 @@ export default function HomePage() {
       setFollowDrone(null); // ✅ ยกเลิกการ follow ตัวเก่าทันที
     }
   }, [selectedDrone, followDrone]);
+
+  // ✅ ป้องกันแผงจาก RightToolbar ซ้อนกัน: เปิดอันหนึ่ง ปิดอีกอันอัตโนมัติ
+  useEffect(() => {
+    if (openHome) {
+      setOpenData(false);
+      setOpenNotif(false);
+      setShowMark(false);
+    }
+  }, [openHome]);
+  useEffect(() => {
+    if (openData) {
+      setOpenHome(false);
+      setOpenNotif(false);
+      setShowMark(false);
+    }
+  }, [openData]);
+  useEffect(() => {
+    if (openNotif) {
+      setOpenHome(false);
+      setOpenData(false);
+      setShowMark(false);
+    }
+  }, [openNotif]);
+  useEffect(() => {
+    if (showMark) {
+      setOpenHome(false);
+      setOpenData(false);
+      setOpenNotif(false);
+    }
+  }, [showMark]);
 
   return (
     <main className="h-screen w-screen">
@@ -55,6 +87,8 @@ export default function HomePage() {
           setMarks={setMarks}
           isMarking={isMarking}
           onFinishMark={() => setIsMarking(false)}
+          notifications={notifications}
+          setNotifications={setNotifications}
         />
 
         {openHome && (
@@ -64,6 +98,12 @@ export default function HomePage() {
           />
         )}
         {openData && <Databar onClose={() => setOpenData(false)} />}
+        {openNotif && (
+          <NotificationSidebar
+            notifications={notifications}
+            onClose={() => setOpenNotif(false)}
+          />
+        )}
 
 
         <RightToolbar
@@ -75,6 +115,7 @@ export default function HomePage() {
             setOpenHome(false); // ปิด HomeSidebar ถ้ามี
             setOpenData((v) => !v);
           }}
+          onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
           onMarkClick={() => setShowMark(!showMark)}
         />
 

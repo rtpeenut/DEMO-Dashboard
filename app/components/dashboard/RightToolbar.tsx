@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import {
   Home, Layers, Camera, Bell, Compass, Settings, User, Plus, Minus, Joystick , MapPin
 } from "lucide-react";
@@ -29,31 +30,115 @@ export default function RightToolbar({
   onHomeClick,
   onDataClick,
   onMarkClick,
+  onNotifClick, // ✅ เพิ่มปุ่มเปิด Sidebar Notification
+  onZoomIn,
+  onZoomOut,
 }: { onHomeClick?: () => void
       onDataClick?: () => void
       onMarkClick?: () => void
+      onNotifClick?: () => void
+      onZoomIn?: () => void
+      onZoomOut?: () => void
     }) {
+  // ✅ ถ้า parent ไม่ได้ส่ง callback มา ให้ยิง window event bridge แทน
+  const doZoomIn = () => {
+    if (onZoomIn) return onZoomIn();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('app:mapZoom', { detail: { dir: 1 } }));
+    }
+  };
+  const doZoomOut = () => {
+    if (onZoomOut) return onZoomOut();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('app:mapZoom', { detail: { dir: -1 } }));
+    }
+  };
+
+  // ✅ สถานะซูมเพื่อใช้วาดตัวเลื่อน (slider)
+  const [zoomInfo, setZoomInfo] = useState<{ level: number; min: number; max: number }>({ level: 12, min: 0, max: 20 });
+  const trackRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startY: number; startRatio: number } | null>(null);
+
+  // ✅ ฟังค่า zoom ปัจจุบันจากแผนที่
+  useEffect(() => {
+    const handler = (e: any) => {
+      const { level, min, max } = e.detail || {};
+      if (typeof level === 'number' && typeof min === 'number' && typeof max === 'number') {
+        setZoomInfo({ level, min, max });
+      }
+    };
+    window.addEventListener('app:zoomChanged', handler as EventListener);
+    return () => window.removeEventListener('app:zoomChanged', handler as EventListener);
+  }, []);
+
+  // ✅ คำนวณตำแหน่งหัวเลื่อนจากระดับซูม (บน=ซูมมาก, ล่าง=ซูมน้อย)
+  const range = Math.max(1, zoomInfo.max - zoomInfo.min);
+  const ratio = Math.min(1, Math.max(0, (zoomInfo.max - zoomInfo.level) / range)); // 0..1
+
+  const setZoomByRatio = (r: number) => {
+    const clamped = Math.min(1, Math.max(0, r));
+    const level = zoomInfo.max - clamped * range;
+    window.dispatchEvent(new CustomEvent('app:setZoom', { detail: { level } }));
+  };
+
+  const onTrackPointerDown = (e: React.PointerEvent) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const pos = (e.clientY - rect.top) / rect.height; // 0..1
+    setZoomByRatio(pos);
+    dragRef.current = { startY: e.clientY, startRatio: pos };
+    window.addEventListener('pointermove', onTrackPointerMove as any);
+    window.addEventListener('pointerup', onTrackPointerUp as any, { once: true });
+  };
+  const onTrackPointerMove = (e: PointerEvent) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const pos = (e.clientY - rect.top) / rect.height;
+    setZoomByRatio(pos);
+  };
+  const onTrackPointerUp = () => {
+    window.removeEventListener('pointermove', onTrackPointerMove as any);
+  };
   return (
     <div id="right-toolbar" className="absolute right-4 top-1/2 -translate-y-1/2 z-[1000]">
       <div className="flex flex-col items-center gap-3">
-        <div className="rounded-2xl bg-zinc-900/90 backdrop-blur border border-zinc-700 p-2">
+        <div className="rounded-2xl p-2 ui-card">
           {/* เรียกใช้ onHomeClick ตรงปุ่ม Home */}
           <ToolbarButton icon={Home} label="Home" onClick={onHomeClick} />
           <ToolbarButton icon={Layers} label="Layers" onClick={onDataClick} />
           <ToolbarButton icon={Camera} label="Snapshot" />
-          <ToolbarButton icon={Bell}   label="Alerts" />
+          {/* ✅ เมื่อกด Bell ให้เปิด/ปิด Sidebar Notification */}
+          <ToolbarButton icon={Bell}   label="Alerts" onClick={onNotifClick} />
           <ToolbarButton icon={MapPin}   label="Pin" onClick={onMarkClick}/>
           <ToolbarDivider />
           <ToolbarButton icon={Joystick} label="Locate" />
           <ToolbarDivider />
           <div className="flex flex-col items-center">
-            <ToolbarButton icon={Plus}  label="Zoom in" />
-            <div className="my-2 h-28 w-1 rounded-full bg-zinc-700/70" />
-            <ToolbarButton icon={Minus} label="Zoom out" />
+            {/* ✅ ปุ่มซูมแผนที่: เรียก callback จาก parent */}
+            <ToolbarButton icon={Plus}  label="Zoom in" onClick={doZoomIn} />
+            {/* ✅ แถบเลื่อนซูม: ลากหรือคลิกเพื่อกำหนดระดับซูม */}
+            <div
+              ref={trackRef}
+              onPointerDown={onTrackPointerDown}
+              className="my-2 h-28 w-2 rounded-full bg-zinc-700/70 relative cursor-pointer select-none"
+              aria-label="Zoom slider"
+              role="slider"
+              aria-valuemin={zoomInfo.min}
+              aria-valuemax={zoomInfo.max}
+              aria-valuenow={zoomInfo.level}
+            >
+              {/* thumb */}
+              <div
+                className="absolute left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-amber-400 shadow"
+                style={{ top: `calc(${ratio * 100}% - 6px)` }}
+              />
+            </div>
+            <ToolbarButton icon={Minus} label="Zoom out" onClick={doZoomOut} />
           </div>
         </div>
 
-        <div className="rounded-2xl bg-zinc-900/90 backdrop-blur border border-zinc-700 p-2">
+        <div className="rounded-2xl p-2 ui-card">
           <ToolbarButton icon={Settings} label="Settings" />
           <ToolbarButton icon={User}     label="Account" />
         </div>

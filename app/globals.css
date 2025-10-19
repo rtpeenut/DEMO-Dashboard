@@ -2,6 +2,61 @@
 @import "leaflet/dist/leaflet.css";
 @import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Sarabun:wght@300;400;600;700&display=swap');
 
+/* =============================
+   Fancy UI theme (opt-in)
+   เปิดใช้งานเมื่อมี class .fancy-ui บน <body> หรือ <html>
+   ถ้าไม่ชอบลุคใหม่ ให้ลบ class นั้นเพื่อกลับแบบเดิม
+   ============================= */
+
+@keyframes ui-fade-slide {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fancy-ui .ui-card {
+  /* glass + gradient subtle */
+  background: linear-gradient(180deg, rgba(28,28,33,0.9), rgba(18,18,22,0.92));
+  border: 1px solid rgba(244, 196, 48, 0.08);
+  box-shadow:
+    0 6px 24px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.03);
+  backdrop-filter: blur(10px);
+  animation: ui-fade-slide 240ms ease;
+}
+
+.fancy-ui .ui-header {
+  background: linear-gradient(180deg, rgba(38,38,44,0.95), rgba(30,30,36,0.9));
+  border: 1px solid rgba(244,196,48,0.10);
+  box-shadow: inset 0 -1px 0 rgba(244,196,48,0.10);
+}
+
+.fancy-ui .ui-pill {
+  background: rgba(244,196,48,0.12);
+  border: 1px solid rgba(244,196,48,0.28);
+  color: #f5d06a;
+}
+
+.fancy-ui .ui-hover:hover {
+  box-shadow: 0 0 0 2px rgba(244,196,48,0.18);
+}
+
+/* Slider accent for RightToolbar */
+.fancy-ui .ui-zoom-track {
+  background: linear-gradient(180deg, rgba(60,60,66,0.7), rgba(30,30,36,0.7));
+}
+.fancy-ui .ui-zoom-thumb {
+  box-shadow: 0 0 0 2px rgba(244,196,48,0.22), 0 6px 12px rgba(0,0,0,0.35);
+}
+
+/* Slide in from the RightToolbar (right: 88px target) */
+@keyframes ui-slide-from-toolbar {
+  from { right: 48px; opacity: 0; }
+  to   { right: 88px; opacity: 1; }
+}
+.fancy-ui .ui-slide-from-toolbar {
+  animation: ui-slide-from-toolbar 240ms ease-out;
+  will-change: right, opacity;
+}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

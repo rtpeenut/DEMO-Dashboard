@@ -49,7 +49,7 @@ export default function NotificationPanel({
       {/* Header */}
       <div className="bg-zinc-800 px-4 py-2 font-bold text-amber-400 text-sm tracking-wide border-b border-zinc-700 flex items-center gap-2">
         {/* ✅ ใช้ Bell icon แทน emoji */}
-        <div className="text-white-1000"><Bell size={16} /></div>
+        <Bell size={16} />
         <span>NOTIFICATION</span>
       </div>
 
