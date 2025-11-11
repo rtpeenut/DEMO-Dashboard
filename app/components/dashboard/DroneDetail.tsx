@@ -36,7 +36,7 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
   }, [drone.id]);
 
   return (
-    <div className="absolute top-14 left-4 z-[1200] w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl overflow-hidden font-prompt">
+    <div className="absolute top-14 left-4 right-4 md:right-auto z-[1200] w-auto md:w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl overflow-hidden font-prompt">
       
       {/* Header */}
       <div className="flex justify-between items-center bg-zinc-800 px-4 py-3">
@@ -50,6 +50,32 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
             ✕
           </button>
         )}
+      </div>
+
+      {/* Drone Image */}
+      <div className="px-4 pt-3">
+        <div className="relative w-full h-48 bg-gradient-to-b from-blue-500/20 to-zinc-900 rounded-xl overflow-hidden border border-zinc-700 flex items-center justify-center">
+          {droneData.imageUrl ? (
+            <img 
+              src={droneData.imageUrl} 
+              alt={droneData.callsign}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                // Show NO IMAGE if image fails to load
+                const parent = e.currentTarget.parentElement;
+                if (parent) {
+                  e.currentTarget.style.display = 'none';
+                  const noImageDiv = document.createElement('div');
+                  noImageDiv.className = 'text-zinc-500 text-sm font-semibold';
+                  noImageDiv.textContent = 'NO IMAGE';
+                  parent.appendChild(noImageDiv);
+                }
+              }}
+            />
+          ) : (
+            <div className="text-zinc-500 text-sm font-semibold">NO IMAGE</div>
+          )}
+        </div>
       </div>
 
       {/* Info */}

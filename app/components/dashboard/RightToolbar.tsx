@@ -13,10 +13,10 @@ function ToolbarButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="mb-2 grid h-12 w-12 place-items-center rounded-xl
+      className="mb-1 md:mb-2 grid h-10 w-10 md:h-12 md:w-12 place-items-center rounded-xl
                  hover:bg-zinc-800/80 active:scale-[.98] transition"
     >
-      <Icon className="h-5 w-5 opacity-90" />
+      <Icon className="h-4 w-4 md:h-5 md:w-5 opacity-90" />
     </button>
   );
 }
@@ -33,10 +33,12 @@ export default function RightToolbar({
   onNotifClick, // ✅ เพิ่มปุ่มเปิด Sidebar Notification
   onZoomIn,
   onZoomOut,
+  onSettingsClick,
 }: { onHomeClick?: () => void
       onDataClick?: () => void
       onMarkClick?: () => void
       onNotifClick?: () => void
+      onSettingsClick?: () => void
       onZoomIn?: () => void
       onZoomOut?: () => void
     }) {
@@ -101,8 +103,8 @@ export default function RightToolbar({
     window.removeEventListener('pointermove', onTrackPointerMove as any);
   };
   return (
-    <div id="right-toolbar" className="absolute right-4 top-1/2 -translate-y-1/2 z-[1000]">
-      <div className="flex flex-col items-center gap-3">
+    <div id="right-toolbar" className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-[1000]">
+      <div className="flex flex-col items-center gap-2 md:gap-3">
         <div className="rounded-2xl p-2 ui-card">
           {/* เรียกใช้ onHomeClick ตรงปุ่ม Home */}
           <ToolbarButton icon={Home} label="Home" onClick={onHomeClick} />
@@ -113,6 +115,7 @@ export default function RightToolbar({
           <ToolbarButton icon={MapPin}   label="Pin" onClick={onMarkClick}/>
           <ToolbarDivider />
           <ToolbarButton icon={Joystick} label="Locate" />
+          {/* <ToolbarButton icon={Settings} label="Settings" onClick={onSettingsClick} /> */}
           <ToolbarDivider />
           <div className="flex flex-col items-center">
             {/* ✅ ปุ่มซูมแผนที่: เรียก callback จาก parent */}
@@ -139,7 +142,7 @@ export default function RightToolbar({
         </div>
 
         <div className="rounded-2xl p-2 ui-card">
-          <ToolbarButton icon={Settings} label="Settings" />
+          <ToolbarButton icon={Settings} label="Settings" onClick={onSettingsClick} />
           <ToolbarButton icon={User}     label="Account" />
         </div>
       </div>

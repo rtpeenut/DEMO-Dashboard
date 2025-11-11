@@ -44,7 +44,7 @@ export default function NotificationPanel({
   const n = notifications[0];
 
   return (
-    <div className="absolute bottom-6 left-6 z-[1200] w-[420px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl text-white overflow-hidden animate-fadeIn">
+    <div className="absolute bottom-4 left-4 right-4 md:right-auto z-[1200] w-auto md:w-[420px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl text-white overflow-hidden animate-fadeIn">
       
       {/* Header */}
       <div className="bg-zinc-800 px-4 py-2 font-bold text-amber-400 text-sm tracking-wide border-b border-zinc-700 flex items-center gap-2">

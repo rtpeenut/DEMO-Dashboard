@@ -19,7 +19,7 @@ export default function MapboxPinnedLocation({
   if (!clickedPin) return null;
 
   return (
-    <div className="absolute bottom-3 left-3 z-[1000] rounded-xl bg-zinc-800/95 backdrop-blur-md shadow-lg overflow-hidden">
+    <div className="absolute bottom-3 left-3 right-3 md:right-auto z-[1000] rounded-xl bg-zinc-800/95 backdrop-blur-md shadow-lg overflow-hidden max-w-[280px]">
       
       <div className="px-3 py-2 space-y-1.5">
         

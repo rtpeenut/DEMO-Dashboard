@@ -12,6 +12,21 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes dronePulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.8);
+    opacity: 0;
+  }
+}
+
 .fancy-ui .ui-card {
   /* glass + gradient subtle */
   background: linear-gradient(180deg, rgba(28,28,33,0.9), rgba(18,18,22,0.92));

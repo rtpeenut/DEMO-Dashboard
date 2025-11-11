@@ -23,7 +23,7 @@ export default function MarkCirclePanel({ position, onConfirm, onCancel }: MarkC
 
   return (
     <div
-      className="absolute top-14 left-4 z-[1200] w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur
+      className="absolute top-14 left-4 right-4 md:right-auto z-[1200] w-auto md:w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur
                  border border-zinc-700 shadow-2xl overflow-hidden font-prompt"
     >
       <div className="flex justify-between items-center bg-zinc-800 px-4 py-3">

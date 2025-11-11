@@ -92,6 +92,7 @@ export interface Drone {
   headingDeg: number;
   position: [number, number];
   lastUpdate?: string;
+  imageUrl?: string;
 }
 // ✅ ฟังก์ชันคำนวณระยะห่างแบบ Haversine (เมตร) เพื่อเช็คว่า "ขยับ" หรือไม่
 function distanceMeters(a: [number, number], b: [number, number]): number {
@@ -117,6 +118,7 @@ export function mapBackendDrone(raw: any): Drone {
     headingDeg: 0, // ถ้ามี heading ใน data ค่อยเพิ่ม
     position: [raw.latitude, raw.longitude],
     lastUpdate: raw.timestamp || new Date().toISOString(),
+    imageUrl: raw.image_path || undefined, // ใช้ undefined ถ้าไม่มีรูป
   };
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {

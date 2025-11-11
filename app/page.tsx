@@ -11,6 +11,7 @@ const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
 const MarkSidebar = dynamic(() => import("@/app/components/dashboard/MarkSidebar"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
+const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 
 
 export default function HomePage() {
@@ -30,7 +31,9 @@ export default function HomePage() {
   const [openHome, setOpenHome] = useState(false);
   const [openData, setOpenData] = useState(false);
   const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
+  const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
+  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
   const [showMark, setShowMark] = useState(false);
   const [marks, setMarks] = useState<
@@ -74,8 +77,17 @@ export default function HomePage() {
       setOpenHome(false);
       setOpenData(false);
       setOpenNotif(false);
+      setOpenSettings(false);
     }
   }, [showMark]);
+  useEffect(() => {
+    if (openSettings) {
+      setOpenHome(false);
+      setOpenData(false);
+      setOpenNotif(false);
+      setShowMark(false);
+    }
+  }, [openSettings]);
 
   // ✅ เตรียมข้อมูลสำหรับ Mapbox (แทน Leaflet) จาก WebSocket/API
   const [mapboxObjects, setMapboxObjects] = useState<any[]>([]);
@@ -119,6 +131,8 @@ export default function HomePage() {
           onFinishMark={() => setIsMarking(false)}
           notifications={notifications}
           setNotifications={setNotifications}
+          mapStyle={mapStyle}
+          onMapStyleChange={setMapStyle}
         />
 
         {openHome && (
@@ -134,19 +148,26 @@ export default function HomePage() {
             onClose={() => setOpenNotif(false)}
           />
         )}
-
+        {openSettings && (
+          <SettingsSidebar
+            currentMapStyle={mapStyle}
+            onMapStyleChange={setMapStyle}
+            onClose={() => setOpenSettings(false)}
+          />
+        )}
 
         <RightToolbar
           onHomeClick={() => {
-            setOpenData(false); // ปิด DataBar ถ้ามี
+            setOpenData(false);
             setOpenHome((v) => !v);
           }}
           onDataClick={() => {
-            setOpenHome(false); // ปิด HomeSidebar ถ้ามี
+            setOpenHome(false);
             setOpenData((v) => !v);
           }}
           onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
           onMarkClick={() => setShowMark(!showMark)}
+          onSettingsClick={() => setOpenSettings((v) => !v)}
         />
 
 

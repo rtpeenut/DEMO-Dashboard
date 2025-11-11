@@ -57,7 +57,7 @@ export default function NotificationSidebar({
         transform: 'translateY(-50%)',
         right: '88px',
       }}
-      className="absolute right-[88px] z-[1100] w-[395px] max-w-[90vw]
+      className="absolute right-4 md:right-[88px] z-[1100] w-full md:w-[395px] max-w-[calc(100vw-2rem)] md:max-w-[90vw]
              rounded-2xl p-3 text-white transition-all flex flex-col font-prompt ui-card ui-slide-from-toolbar"
     >
       <div className="mb-2 flex items-center justify-between rounded-xl px-4 py-2 text-amber-400 font-bold tracking-wider ui-header">

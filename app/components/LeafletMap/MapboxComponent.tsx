@@ -50,6 +50,8 @@ interface MapComponentProps {
   onFinishMark?: () => void;
   notifications?: any[];
   setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
+  mapStyle?: string;
+  onMapStyleChange?: (style: string) => void;
 }
 
 const MapComponent = ({
@@ -64,6 +66,8 @@ const MapComponent = ({
   onFinishMark,
   notifications,
   setNotifications,
+  mapStyle: externalMapStyle,
+  onMapStyleChange,
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -78,6 +82,14 @@ const MapComponent = ({
   const [clickedPin, setClickedPin] = useState<{ lng: number; lat: number } | null>(null);
   const clickedPinMarker = useRef<mapboxgl.Marker | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [mapStyle, setMapStyle] = useState(externalMapStyle || 'mapbox://styles/mapbox/satellite-streets-v12');
+
+  // Sync external map style changes
+  useEffect(() => {
+    if (externalMapStyle) {
+      setMapStyle(externalMapStyle);
+    }
+  }, [externalMapStyle]);
 
   // ✅ รองรับทั้ง Vite และ Next.js: ใช้ import.meta.env ถ้ามี ไม่งั้น fallback เป็น NEXT_PUBLIC_MAPBOX_TOKEN
   const mapboxToken = (() => {
@@ -165,7 +177,7 @@ const MapComponent = ({
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      style: mapStyle,
       center: getMapCenter() as [number, number],
       zoom: 17,
     });
@@ -219,6 +231,13 @@ const MapComponent = ({
       });
     }
   }, [cameraLocation]);
+
+  // เปลี่ยน map style แบบ dynamic
+  useEffect(() => {
+    if (map.current && mapStyle) {
+      map.current.setStyle(mapStyle);
+    }
+  }, [mapStyle]);
 
   // สร้าง markers สำหรับวัตถุทั้งหมด (ยกเว้นโดรน เพราะมี MapboxDroneMarkers แสดงแล้ว)
   useEffect(() => {
@@ -526,7 +545,10 @@ const MapComponent = ({
       )}
 
       {/* Sub-components for map features */}
-      <MapboxFollowDrone map={map.current} followDrone={followDrone} />
+      <MapboxFollowDrone 
+        map={map.current} 
+        followDrone={followDrone ? drones.find(d => d.id === followDrone.id) || followDrone : null} 
+      />
       <MapboxMarkZones map={map.current} marks={marks} />
       <MapboxZoneWatcher 
         marks={marks} 
