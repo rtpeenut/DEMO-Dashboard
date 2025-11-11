@@ -31,13 +31,34 @@ interface MapComponentProps {
   objects: DetectedObject[];
   imagePath?: string;
   cameraLocation?: string;
+  // ความเข้ากันได้กับ LeafletMap เดิม
+  selectedDrone?: any;
+  onSelectDrone?: (drone: any) => void;
+  followDrone?: any;
+  marks?: { id: string; name: string; color: string; pos: [number, number]; radius: number }[];
+  setMarks?: React.Dispatch<React.SetStateAction<any[]>>;
+  isMarking?: boolean;
+  onFinishMark?: () => void;
+  notifications?: any[];
+  setNotifications?: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-const MapComponent = ({ objects, imagePath, cameraLocation }: MapComponentProps) => {
+const MapComponent = ({
+  objects,
+  imagePath,
+  cameraLocation,
+  onSelectDrone,
+  followDrone,
+  marks,
+  setMarks,
+  isMarking,
+  onFinishMark,
+}: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const markers = useRef<mapboxgl.Marker[]>([]);
   const selectedMarkerRef = useRef<HTMLDivElement | null>(null);
+  const mapEventHandlersBound = useRef(false);
 
   const [selectedObject, setSelectedObject] = useState<DetectedObject | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number } | null>(null);
@@ -119,7 +140,39 @@ const MapComponent = ({ objects, imagePath, cameraLocation }: MapComponentProps)
       zoom: 17,
     });
 
+    // Bridge zoom events ให้เข้ากับ RightToolbar เดิม
+    const m = map.current;
+    const emitZoomChanged = () => {
+      const level = m.getZoom();
+      const min = m.getMinZoom();
+      const max = m.getMaxZoom();
+      window.dispatchEvent(new CustomEvent('app:zoomChanged', { detail: { level, min, max } }));
+    };
+    m.on('zoom', emitZoomChanged);
+    m.on('load', emitZoomChanged);
+
+    // ฟัง event จาก toolbar
+    if (!mapEventHandlersBound.current) {
+      window.addEventListener('app:mapZoom', (e: any) => {
+        const dir = e?.detail?.dir ?? 0;
+        if (!m) return;
+        const target = m.getZoom() + (dir > 0 ? 1 : -1);
+        m.easeTo({ zoom: target, duration: 250 });
+      });
+      window.addEventListener('app:setZoom', (e: any) => {
+        const level = e?.detail?.level;
+        if (typeof level === 'number') {
+          m.easeTo({ zoom: level, duration: 100 });
+        }
+      });
+      mapEventHandlersBound.current = true;
+    }
+
     return () => {
+      try {
+        m.off('zoom', emitZoomChanged);
+        m.off('load', emitZoomChanged);
+      } catch {}
       map.current?.remove();
     };
   }, []);
@@ -214,6 +267,8 @@ const MapComponent = ({ objects, imagePath, cameraLocation }: MapComponentProps)
         e.stopPropagation();
         setSelectedObject(obj);
         selectedMarkerRef.current = el;
+        // เรียก callback แบบเดิม (เลือกโดรน)
+        onSelectDrone?.(obj);
 
         const rect = el.getBoundingClientRect();
         setCardPosition({
@@ -232,6 +287,40 @@ const MapComponent = ({ objects, imagePath, cameraLocation }: MapComponentProps)
       markers.current.push(marker);
     });
   }, [objects, imagePath]);
+
+  // ติดตามโดรน (flyTo) เมื่อ followDrone เปลี่ยน
+  useEffect(() => {
+    if (!map.current || !followDrone) return;
+    const { position } = followDrone;
+    const lat = position?.[0];
+    const lng = position?.[1];
+    if (typeof lat === 'number' && typeof lng === 'number') {
+      map.current.flyTo({ center: [lng, lat], zoom: Math.max(map.current.getZoom(), 15), duration: 800 });
+    }
+  }, [followDrone]);
+
+  // คลิกเพื่อปัก mark เมื่อ isMarking เปิดอยู่
+  useEffect(() => {
+    if (!map.current) return;
+    const m = map.current;
+    const onClick = (e: any) => {
+      if (!isMarking || !setMarks) return;
+      const { lng, lat } = e.lngLat;
+      const newMark = {
+        id: crypto.randomUUID(),
+        name: "New Mark",
+        pos: [lat, lng] as [number, number],
+        radius: 500,
+        color: "#f59e0b",
+      };
+      setMarks((prev: any[]) => [...prev, newMark]);
+      onFinishMark?.();
+    };
+    m.on('click', onClick);
+    return () => {
+      m.off('click', onClick);
+    };
+  }, [isMarking, setMarks, onFinishMark]);
 
   // อัพเดทตำแหน่ง popup เมื่อแผนที่เลื่อนหรือ zoom
   useEffect(() => {

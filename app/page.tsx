@@ -111,6 +111,15 @@ export default function HomePage() {
           objects={mapboxObjects}
           imagePath={undefined}
           cameraLocation={"defence"}
+          selectedDrone={selectedDrone}
+          onSelectDrone={(drone: any) => setSelectedDrone(drone)}
+          followDrone={followDrone}
+          marks={marks}
+          setMarks={setMarks}
+          isMarking={isMarking}
+          onFinishMark={() => setIsMarking(false)}
+          notifications={notifications}
+          setNotifications={setNotifications}
         />
 
         {openHome && (
