@@ -4,7 +4,6 @@ import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase";
 
-const LeafletMap = dynamic(() => import("@/app/components/LeafletMap/LeafletMap"), { ssr: false });
 const MapboxComponent = dynamic(() => import("@/app/components/LeafletMap/MapboxComponent"), { ssr: false });
 const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolbar"), { ssr: false });
 const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
@@ -162,9 +161,7 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* ✅ เอา FollowDroneUpdater ออกจากที่นี่เพราะอยู่นอก <MapContainer>
-          จะทำให้ useMap() พัง (ไม่มี context ของ Leaflet)
-          เราใช้ตัวที่อยู่ใน LeafletMap แทน ซึ่งถูกวางไว้ภายใน <MapContainer> แล้ว */}
+      {/* ✅ ใช้ Mapbox เต็มรูปแบบแล้ว - ไม่ต้องใช้ Leaflet อีกต่อไป */}
 
 
       {showMark && (

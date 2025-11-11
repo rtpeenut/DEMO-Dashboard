@@ -120,7 +120,7 @@ export function mapBackendDrone(raw: any): Drone {
   };
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
-  const ws = new WebSocket("wss://sharri-unpatted-cythia.ngrok-free.dev/ws");
+  const ws = new WebSocket("wss://ace42530b32d.ngrok-free.app/ws");
 
   const droneMap = new Map<string, Drone>();
   // ✅ state เพิ่มเติมสำหรับตรวจจับโดรนที่ไม่ขยับเกิน 10 วินาที

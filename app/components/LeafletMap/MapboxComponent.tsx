@@ -10,6 +10,15 @@ import { Box, IconButton } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { type DetectedObject } from '../types/detection';
 import DetectionPopup from './DetectionPopup';
+import MarkCirclePanel from '@/app/components/dashboard/MarkCirclePanel';
+import NotificationPanel from '../dashboard/NotificationPanel';
+import MapboxFollowDrone from './MapboxFollowDrone';
+import MapboxZoneWatcher from './MapboxZoneWatcher';
+import MapboxMarkZones from './MapboxMarkZones';
+import MapboxDroneMarkers from './MapboxDroneMarkers';
+import MapboxPinnedLocation from './MapboxPinnedLocation';
+import { latLngToMGRS, getColorForObjectId, getIconName } from '@/app/utils/mapUtils';
+import { subscribeDrones } from "@/server/mockDatabase";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // โหลด Iconify สำหรับใช้ dynamic icons
@@ -53,6 +62,8 @@ const MapComponent = ({
   setMarks,
   isMarking,
   onFinishMark,
+  notifications,
+  setNotifications,
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -62,6 +73,11 @@ const MapComponent = ({
 
   const [selectedObject, setSelectedObject] = useState<DetectedObject | null>(null);
   const [cardPosition, setCardPosition] = useState<{ x: number; y: number } | null>(null);
+  const [pendingMark, setPendingMark] = useState<[number, number] | null>(null);
+  const [drones, setDrones] = useState<any[]>([]);
+  const [clickedPin, setClickedPin] = useState<{ lng: number; lat: number } | null>(null);
+  const clickedPinMarker = useRef<mapboxgl.Marker | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // ✅ รองรับทั้ง Vite และ Next.js: ใช้ import.meta.env ถ้ามี ไม่งั้น fallback เป็น NEXT_PUBLIC_MAPBOX_TOKEN
   const mapboxToken = (() => {
@@ -89,41 +105,55 @@ const MapComponent = ({
     return [101.166279, 14.297567];
   };
 
-  // หา icon name ตามประเภทวัตถุ
-  const getIconName = (type: string): string => {
-    const iconMap: Record<string, string> = {
-      person: 'mdi:account',
-      car: 'mdi:car',
-      truck: 'mdi:truck',
-      bike: 'mdi:bike',
-      drone: 'healthicons:drone',
-      default: 'mdi:map-marker',
-    };
-    return iconMap[type.toLowerCase()] || iconMap.default;
-  };
-
-  // สร้างสีจาก object ID (แต่ละ ID จะได้สีไม่ซ้ำกัน)
-  const getColorForObjectId = (objectId: string): string => {
-    const colors = [
-      '#FF5722', '#2196F3', '#4CAF50', '#FFC107', '#9C27B0',
-      '#00BCD4', '#E91E63', '#FF9800', '#009688', '#F44336',
-      '#3F51B5', '#8BC34A', '#FFEB3B', '#673AB7', '#00E676',
-    ];
-
-    let hash = 0;
-    for (let i = 0; i < objectId.length; i++) {
-      hash = objectId.charCodeAt(i) + ((hash << 5) - hash);
-    }
-
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
-  };
-
   const handleClose = () => {
     setSelectedObject(null);
     setCardPosition(null);
     selectedMarkerRef.current = null;
   };
+
+  // Handle pinned location close
+  const handlePinClose = () => {
+    setClickedPin(null);
+    if (clickedPinMarker.current) {
+      clickedPinMarker.current.remove();
+      clickedPinMarker.current = null;
+    }
+  };
+
+  // Handle copy coordinates
+  const handleCopyCoordinates = () => {
+    if (!clickedPin) return;
+    const mgrs = latLngToMGRS(clickedPin.lat, clickedPin.lng, 5);
+    const text = `Lat: ${clickedPin.lat.toFixed(6)}, Lng: ${clickedPin.lng.toFixed(6)}\nMGRS: ${mgrs}`;
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
+
+  // Handle drone zone events
+  const handleDroneInZone = (drone: any, mark: any, event: "enter" | "exit") => {
+    if (!setNotifications) return;
+    
+    setNotifications((prev: any[]) => [
+      {
+        id: `${drone.id}-${mark.id}-${event}-${Date.now()}`,
+        message: event === "enter" ? "พบโดรนบินเข้าเขต" : "โดรนออกจากเขต",
+        zoneName: mark.name,
+        drone,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      },
+      ...prev,
+    ]);
+  };
+
+  // Subscribe drones real-time
+  useEffect(() => {
+    const stop = subscribeDrones(setDrones);
+    return stop;
+  }, []);
 
   // สร้างแผนที่ (run ครั้งเดียวตอน mount)
   useEffect(() => {
@@ -139,6 +169,8 @@ const MapComponent = ({
       center: getMapCenter() as [number, number],
       zoom: 17,
     });
+
+
 
     // Bridge zoom events ให้เข้ากับ RightToolbar เดิม
     const m = map.current;
@@ -188,7 +220,7 @@ const MapComponent = ({
     }
   }, [cameraLocation]);
 
-  // สร้าง markers สำหรับวัตถุทั้งหมด
+  // สร้าง markers สำหรับวัตถุทั้งหมด (ยกเว้นโดรน เพราะมี MapboxDroneMarkers แสดงแล้ว)
   useEffect(() => {
     if (!map.current) return;
 
@@ -199,6 +231,9 @@ const MapComponent = ({
     if (objects.length === 0) return;
 
     objects.forEach((obj) => {
+      // ข้าม drone เพราะมี MapboxDroneMarkers แสดงแล้ว
+      if (obj.type === 'drone') return;
+      
       const color = getColorForObjectId(obj.obj_id);
       const iconName = getIconName(obj.type);
 
@@ -288,39 +323,89 @@ const MapComponent = ({
     });
   }, [objects, imagePath]);
 
-  // ติดตามโดรน (flyTo) เมื่อ followDrone เปลี่ยน
-  useEffect(() => {
-    if (!map.current || !followDrone) return;
-    const { position } = followDrone;
-    const lat = position?.[0];
-    const lng = position?.[1];
-    if (typeof lat === 'number' && typeof lng === 'number') {
-      map.current.flyTo({ center: [lng, lat], zoom: Math.max(map.current.getZoom(), 15), duration: 800 });
-    }
-  }, [followDrone]);
 
-  // คลิกเพื่อปัก mark เมื่อ isMarking เปิดอยู่
+
+  // คลิกเพื่อปัก mark หรือปักหมุดพิกัด
   useEffect(() => {
     if (!map.current) return;
     const m = map.current;
     const onClick = (e: any) => {
-      if (!isMarking || !setMarks) return;
       const { lng, lat } = e.lngLat;
-      const newMark = {
-        id: crypto.randomUUID(),
-        name: "New Mark",
-        pos: [lat, lng] as [number, number],
-        radius: 500,
-        color: "#f59e0b",
-      };
-      setMarks((prev: any[]) => [...prev, newMark]);
-      onFinishMark?.();
+      
+      if (isMarking) {
+        // โหมดสร้าง mark zone
+        setPendingMark([lat, lng]);
+      } else {
+        // โหมดปกติ - ตรวจสอบว่าคลิกที่เดิมหรือไม่
+        const isSameLocation = clickedPin && 
+          Math.abs(clickedPin.lat - lat) < 0.00001 && 
+          Math.abs(clickedPin.lng - lng) < 0.00001;
+        
+        if (isSameLocation) {
+          // คลิกที่เดิม - ลบหมุด
+          setClickedPin(null);
+          if (clickedPinMarker.current) {
+            clickedPinMarker.current.remove();
+            clickedPinMarker.current = null;
+          }
+        } else {
+          // คลิกที่ใหม่ - ปักหมุดพิกัด
+          setClickedPin({ lng, lat });
+          
+          // ลบหมุดเก่า
+          if (clickedPinMarker.current) {
+            clickedPinMarker.current.remove();
+          }
+          
+          // สร้างหมุดใหม่ (ใช้ Lucide MapPin icon)
+          const pinEl = document.createElement('div');
+          pinEl.style.cssText = `
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+          `;
+          // Lucide MapPin SVG
+          pinEl.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+              <circle cx="12" cy="10" r="3"/>
+            </svg>
+          `;
+          
+          const marker = new mapboxgl.Marker(pinEl)
+            .setLngLat([lng, lat])
+            .addTo(m);
+          
+          clickedPinMarker.current = marker;
+        }
+      }
     };
     m.on('click', onClick);
     return () => {
       m.off('click', onClick);
     };
-  }, [isMarking, setMarks, onFinishMark]);
+  }, [isMarking, clickedPin]);
+
+  // ยืนยัน mark จาก MarkCirclePanel
+  const confirmMark = (data: { name: string; radius: number; color: string }) => {
+    if (!pendingMark || !setMarks) return;
+    const newMark = {
+      id: crypto.randomUUID(),
+      name: data.name || "Unnamed Mark",
+      pos: pendingMark,
+      radius: data.radius,
+      color: data.color,
+    };
+    setMarks((prev: any[]) => [...prev, newMark]);
+    setPendingMark(null);
+    onFinishMark?.();
+  };
+
+
 
   // อัพเดทตำแหน่ง popup เมื่อแผนที่เลื่อนหรือ zoom
   useEffect(() => {
@@ -378,6 +463,14 @@ const MapComponent = ({
         }}
       />
 
+      {/* Pinned Location Display - แสดงเฉพาะเมื่อมีการปักหมุด */}
+      <MapboxPinnedLocation
+        clickedPin={clickedPin}
+        onClose={handlePinClose}
+        copySuccess={copySuccess}
+        onCopy={handleCopyCoordinates}
+      />
+
       {/* Detection Popup */}
       {selectedObject && cardPosition && (
         <Box
@@ -411,6 +504,37 @@ const MapComponent = ({
           <DetectionPopup object={selectedObject} imagePath={imagePath} />
         </Box>
       )}
+
+      {/* MarkCirclePanel - กล่องตั้งค่า mark */}
+      {pendingMark && (
+        <MarkCirclePanel
+          position={pendingMark}
+          onConfirm={confirmMark}
+          onCancel={() => {
+            setPendingMark(null);
+            onFinishMark?.();
+          }}
+        />
+      )}
+
+      {/* NotificationPanel - แสดงการแจ้งเตือน */}
+      {notifications && setNotifications && (
+        <NotificationPanel
+          notifications={notifications}
+          setNotifications={setNotifications}
+        />
+      )}
+
+      {/* Sub-components for map features */}
+      <MapboxFollowDrone map={map.current} followDrone={followDrone} />
+      <MapboxMarkZones map={map.current} marks={marks} />
+      <MapboxZoneWatcher 
+        marks={marks} 
+        drones={drones} 
+        isFollowing={!!followDrone}
+        onDroneInZone={handleDroneInZone}
+      />
+      <MapboxDroneMarkers map={map.current} onSelect={onSelectDrone} />
     </Box>
   );
 };
