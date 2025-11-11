@@ -138,7 +138,15 @@ export default function MapboxMarkZones({ map, marks }: MapboxMarkZonesProps) {
       map.once('load', drawMarks);
     }
 
+    // Re-draw marks when style changes (e.g., when changing map theme or toggling 3D)
+    const handleStyleLoad = () => {
+      // Wait a bit for style to fully load
+      setTimeout(drawMarks, 100);
+    };
+    map.on('style.load', handleStyleLoad);
+
     return () => {
+      map.off('style.load', handleStyleLoad);
       markCircles.current.forEach((sourceId) => {
         const layerId = `mark-layer-${sourceId}`;
         const borderLayerId = `${layerId}-border`;

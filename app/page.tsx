@@ -56,6 +56,7 @@ export default function HomePage() {
       setOpenData(false);
       setOpenNotif(false);
       setShowMark(false);
+      setOpenSettings(false);
     }
   }, [openHome]);
   useEffect(() => {
@@ -63,6 +64,7 @@ export default function HomePage() {
       setOpenHome(false);
       setOpenNotif(false);
       setShowMark(false);
+      setOpenSettings(false);
     }
   }, [openData]);
   useEffect(() => {
@@ -70,6 +72,7 @@ export default function HomePage() {
       setOpenHome(false);
       setOpenData(false);
       setShowMark(false);
+      setOpenSettings(false);
     }
   }, [openNotif]);
   useEffect(() => {
@@ -168,6 +171,11 @@ export default function HomePage() {
           onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
           onMarkClick={() => setShowMark(!showMark)}
           onSettingsClick={() => setOpenSettings((v) => !v)}
+          on3DToggle={() => {
+            if ((window as any).mapbox3DToggle) {
+              (window as any).mapbox3DToggle();
+            }
+          }}
         />
 
 
