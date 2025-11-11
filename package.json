@@ -8,9 +8,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@emotion/react": "11.14.0",
+    "@emotion/styled": "11.14.1",
+    "@iconify/react": "6.0.2",
+    "@mui/material": "7.3.5",
+    "@types/mapbox-gl": "3.4.1",
     "leaflet": "^1.9.4",
     "leaflet-geometryutil": "^0.10.3",
     "lucide-react": "^0.544.0",
+    "mapbox-gl": "3.16.0",
     "mgrs": "^2.1.0",
     "next": "15.5.4",
     "react": "19.1.0",

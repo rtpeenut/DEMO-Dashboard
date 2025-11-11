@@ -21,6 +21,38 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="bg-zinc-950 text-white">
+      <head>
+        {/* Shim import.meta.env.VITE_MAPBOX_TOKEN for components expecting Vite-style env */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function () {
+                try {
+                  var token = ${JSON.stringify(process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "")};
+                  if (typeof window !== 'undefined') {
+                    // สร้างโครงสร้าง import.meta.env ถ้ายังไม่มี
+                    // @ts-ignore
+                    window.import = window.import || {};
+                    // @ts-ignore
+                    window.import.meta = window.import.meta || {};
+                    // @ts-ignore
+                    window.import.meta.env = Object.assign({}, window.import.meta.env, { VITE_MAPBOX_TOKEN: token });
+
+                    // ตั้งตัวแปรช่วยอ่าน token แบบตรงไปตรงมา และพยายามตั้งให้ mapboxgl ถ้ามี
+                    // @ts-ignore
+                    window.__MAPBOX_TOKEN = token;
+                    // @ts-ignore
+                    if (window.mapboxgl && token) {
+                      // @ts-ignore
+                      window.mapboxgl.accessToken = token;
+                    }
+                  }
+                } catch (e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${inter.className} antialiased fancy-ui`}
       >

@@ -106,7 +106,7 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   const c = 2 * Math.atan2(Math.sqrt(s1 + s2), Math.sqrt(1 - (s1 + s2)));
   return R * c;
 }
-function mapBackendDrone(raw: any): Drone {
+export function mapBackendDrone(raw: any): Drone {
   return {
     id: raw.drone_id || raw.id || "unknown",
     callsign: raw.drone_id?.toUpperCase() || "UNNAMED",
@@ -200,5 +200,38 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
   return () => {
     try { ws.close(); } catch {}
     clearInterval(pruneTimer);
+  };
+}
+
+// ✅ แหล่งข้อมูลแบบ API Polling (ดึงจาก /api/drones เป็นระยะ)
+// - ใช้เมื่ออยากสลับจาก WebSocket มาเป็น REST โดยไม่ลบของเก่า
+export function subscribeDronesApi(onUpdate: (list: Drone[]) => void, intervalMs: number = 1000) {
+  let stopped = false;
+  let timer: any;
+
+  const tick = async () => {
+    if (stopped) return;
+    try {
+      const res = await fetch("/api/drones", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      // รองรับทั้ง array ของ raw และกรณีที่ backend ส่ง array ของ Drone อยู่แล้ว
+      const list: Drone[] = Array.isArray(data)
+        ? data.map((r: any) => (r.position ? (r as Drone) : mapBackendDrone(r)))
+        : [];
+      onUpdate(list);
+    } catch (err) {
+      // เงียบไว้/จะ log ก็ได้
+      // console.warn("subscribeDronesApi error:", err);
+    } finally {
+      timer = setTimeout(tick, intervalMs);
+    }
+  };
+
+  tick();
+
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
   };
 }

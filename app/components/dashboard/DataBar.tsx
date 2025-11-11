@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Drone, Search, Layers } from "lucide-react";
-import { subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket สำหรับอัปเดตโดรนแบบเรียลไทม์
+import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket หรือ API สำหรับอัปเดตโดรนแบบเรียลไทม์
 
 interface DroneData {
   id: string;
@@ -29,15 +29,15 @@ export default function DataBar({ onClose }: { onClose?: () => void }) {
       setToolbarHeight(height);
     }
 
-    // ✅ เปลี่ยนจาก fetch REST มาใช้ WebSocket โดยตรง
-    // /api/drones คืนเป็น object ไม่ใช่ array ทำให้ .map พัง
-    const stop = subscribeDrones((list) => {
+    // ✅ เลือกแหล่งข้อมูลจาก env: NEXT_PUBLIC_DATA_SOURCE = 'api' | 'ws'
+    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
+    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
       if (Array.isArray(list)) {
         setDrones(list as unknown as DroneData[]);
       } else {
         // กันเคสข้อมูลผิดรูปแบบ
         setDrones([]);
-        console.warn("Invalid drones data from WS:", list);
+        console.warn("Invalid drones data:", list);
       }
     });
 

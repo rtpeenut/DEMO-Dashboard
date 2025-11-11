@@ -2,8 +2,10 @@
 
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
+import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase";
 
 const LeafletMap = dynamic(() => import("@/app/components/LeafletMap/LeafletMap"), { ssr: false });
+const MapboxComponent = dynamic(() => import("@/app/components/LeafletMap/MapboxComponent"), { ssr: false });
 const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolbar"), { ssr: false });
 const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
@@ -76,19 +78,39 @@ export default function HomePage() {
     }
   }, [showMark]);
 
+  // ✅ เตรียมข้อมูลสำหรับ Mapbox (แทน Leaflet) จาก WebSocket/API
+  const [mapboxObjects, setMapboxObjects] = useState<any[]>([]);
+
+  useEffect(() => {
+    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
+    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
+      if (!Array.isArray(list)) return;
+      // map Drone → DetectedObject
+      const objs = list
+        .filter((d: any) => Array.isArray(d.position) && d.position.length === 2)
+        .map((d: any) => ({
+          id: d.id,
+          obj_id: d.id,
+          type: "drone",
+          lat: d.position[0],
+          lng: d.position[1],
+          altitudeFt: d.altitudeFt,
+          speedKt: d.speedKt,
+          callsign: d.callsign,
+        }));
+      setMapboxObjects(objs);
+    });
+    return stop;
+  }, []);
+
   return (
     <main className="h-screen w-screen">
       <div className="relative h-full w-full">
-        <LeafletMap
-          selectedDrone={selectedDrone}
-          onSelectDrone={(drone: any) => setSelectedDrone(drone)}
-          followDrone={followDrone}
-          marks={marks}
-          setMarks={setMarks}
-          isMarking={isMarking}
-          onFinishMark={() => setIsMarking(false)}
-          notifications={notifications}
-          setNotifications={setNotifications}
+        {/* ✅ ใช้ Mapbox แทน Leaflet */}
+        <MapboxComponent
+          objects={mapboxObjects}
+          imagePath={undefined}
+          cameraLocation={"defence"}
         />
 
         {openHome && (

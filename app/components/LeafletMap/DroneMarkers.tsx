@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Marker, Tooltip } from "react-leaflet";
 import L from "leaflet";
-import { Drone, subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket
+import { Drone, subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket หรือ API
 import { DroneIcon } from "lucide-react"; // ใช้ Icon ของ lucide-react ได้เลย
 
 export default function DroneMarkers({
@@ -13,11 +13,12 @@ export default function DroneMarkers({
 }) {
   const [drones, setDrones] = useState<Drone[]>([]);
 
-  // ✅ ใช้ WebSocket เพื่ออัปเดตโดรนแบบเรียลไทม์
+  // ✅ อัปเดตโดรนแบบเรียลไทม์จาก WS หรือ Polling API ตาม env
   useEffect(() => {
-    const stop = subscribeDrones((list) => {
+    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
+    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
       if (Array.isArray(list)) setDrones(list);
-      else console.warn("WebSocket returned invalid data:", list);
+      else console.warn("Invalid drones data:", list);
     });
     return stop;
   }, []);

@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Route, Plus } from "lucide-react";
-import { subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket ติดตามสถานะโดรนแบบเรียลไทม์
+import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket/REST ตามการตั้งค่า
 
 interface DroneDetailProps {
   drone: {
@@ -25,15 +25,14 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
   const [droneData, setDroneData] = useState(drone);
 
   useEffect(() => {
-    // ✅ เปลี่ยนมาใช้ WebSocket (subscribeDrones) แทน REST
-    // เพราะ /api/drones ไม่ได้ส่งข้อมูลเป็นอาเรย์ ทำให้ data.find พัง
-    // ตรงนี้เราจะรับลิสต์โดรนจาก WS แล้วเลือกเฉพาะตัวที่ id ตรงกัน
-    const stop = subscribeDrones((list) => {
+    // ✅ เลือกแหล่งข้อมูลจาก env: NEXT_PUBLIC_DATA_SOURCE = 'api' | 'ws'
+    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
+    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
       if (!Array.isArray(list)) return; // กันชนิดผิดพลาดจาก WS
       const updated = list.find((d: any) => d.id === drone.id);
       if (updated) setDroneData(updated);
     });
-    return stop; // cleanup: ปิด WS subscription เมื่อ component unmount หรือ id เปลี่ยน
+    return stop; // cleanup
   }, [drone.id]);
 
   return (
