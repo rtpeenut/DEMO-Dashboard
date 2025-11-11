@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { Route, Plus } from "lucide-react";
-import { subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket ติดตามสถานะโดรนแบบเรียลไทม์
+import { subscribeDrones } from "@/app/libs/droneMapperData"; // ✅ ใช้ WebSocket ติดตามสถานะโดรนแบบเรียลไทม์
 
 interface DroneDetailProps {
   drone: {

@@ -8,7 +8,7 @@ import MgrsCursorOverlay from './MgrsCursorOverlay';
 import DroneMarkers from './DroneMarkers';
 import MarkCirclePanel from '@/app/components/dashboard/MarkCirclePanel';
 import NotificationPanel from '../dashboard/NotificationPanel';
-import { subscribeDrones } from "@/server/mockDatabase";
+import { subscribeDrones } from "@/app/libs/droneMapperData";
 import type { Notification } from "../dashboard/NotificationPanel";
 import MarkZoneWatcher from "./MarkZoneWatcher";
 import FollowDroneUpdater from './FollowDroneUpdater';

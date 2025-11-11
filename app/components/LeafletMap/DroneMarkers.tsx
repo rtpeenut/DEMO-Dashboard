@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Marker, Tooltip } from "react-leaflet";
 import L from "leaflet";
-import { Drone, subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket
+import { Drone, subscribeDrones } from "@/app/libs/droneMapperData"; // ✅ ใช้ WebSocket
 import { DroneIcon } from "lucide-react"; // ใช้ Icon ของ lucide-react ได้เลย
 
 export default function DroneMarkers({

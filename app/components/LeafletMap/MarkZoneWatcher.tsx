@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Circle, Marker } from "react-leaflet"; //ใช้จาก react-leaflet
 import L from "leaflet";
-import { Drone } from "@/server/mockDatabase";
+import { Drone } from "@/app/libs/droneMapperData";
 
 interface Mark {
   id: string;

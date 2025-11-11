@@ -82,6 +82,9 @@
 //   await new Promise((r) => setTimeout(r, 200));
 //   return drones;
 // }
+/**
+ * Drone interface สำหรับแสดงผลบนแผนที่
+ */
 export interface Drone {
   id: string;
   callsign: string;
@@ -92,8 +95,13 @@ export interface Drone {
   headingDeg: number;
   position: [number, number];
   lastUpdate?: string;
+  mgrs?: string;
+  imageUrl?: string;
 }
-// ✅ ฟังก์ชันคำนวณระยะห่างแบบ Haversine (เมตร) เพื่อเช็คว่า "ขยับ" หรือไม่
+
+/**
+ * คำนวณระยะห่างแบบ Haversine (เมตร) เพื่อเช็คว่า "ขยับ" หรือไม่
+ */
 function distanceMeters(a: [number, number], b: [number, number]): number {
   const toRad = (v: number) => (v * Math.PI) / 180;
   const R = 6371e3; // รัศมีโลก (เมตร)
@@ -106,37 +114,108 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   const c = 2 * Math.atan2(Math.sqrt(s1 + s2), Math.sqrt(1 - (s1 + s2)));
   return R * c;
 }
-function mapBackendDrone(raw: any): Drone {
+
+/**
+ * แปลงข้อมูลจาก API object-detection ให้เป็น Drone interface
+ */
+function mapDetectedObjectToDrone(obj: any, cameraInfo: any): Drone {
+  const lat = parseFloat(obj.lat);
+  const lng = parseFloat(obj.lng);
+  
+  // กำหนด status จาก objective
+  let status: "FRIEND" | "HOSTILE" = "HOSTILE";
+  if (obj.objective === "our" || obj.objective === "friend") {
+    status = "FRIEND";
+  }
+
   return {
-    id: raw.drone_id || raw.id || "unknown",
-    callsign: raw.drone_id?.toUpperCase() || "UNNAMED",
-    type: "UAV",
-    status: "HOSTILE", // หรือจะปรับจาก raw.confidence ก็ได้
-    speedKt: raw.speed_mps ? raw.speed_mps * 1.94384 : 0, // m/s → knots
-    altitudeFt: raw.altitude_m ? raw.altitude_m * 3.28084 : 0, // m → feet
-    headingDeg: 0, // ถ้ามี heading ใน data ค่อยเพิ่ม
-    position: [raw.latitude, raw.longitude],
-    lastUpdate: raw.timestamp || new Date().toISOString(),
+    id: obj.obj_id,
+    callsign: obj.obj_id.toUpperCase(),
+    type: obj.type || "drone",
+    status,
+    speedKt: 0, // API ไม่มีข้อมูล speed ให้ set เป็น 0
+    altitudeFt: 0, // API ไม่มีข้อมูล altitude ให้ set เป็น 0
+    headingDeg: 0, // API ไม่มีข้อมูล heading ให้ set เป็น 0
+    position: [lat, lng],
+    lastUpdate: new Date().toISOString(),
+    mgrs: undefined, // API ไม่มีข้อมูล MGRS
+    imageUrl: undefined, // API ไม่มีข้อมูล imageUrl
   };
 }
+
+/**
+ * Subscribe to real-time drone updates from Socket.IO
+ * ใช้ Socket.IO เชื่อมต่อกับ API และรับข้อมูลแบบ real-time
+ */
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
-  const ws = new WebSocket("wss://sharri-unpatted-cythia.ngrok-free.dev/ws");
+  // ใช้ environment variables จาก .env
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'https://tesa-api.crma.dev';
+  const CAMERA_ID = process.env.NEXT_PUBLIC_CAMERA_ID || '';
+
+  // เชื่อมต่อ Socket.IO
+  const socket = require('socket.io-client')(SOCKET_URL);
 
   const droneMap = new Map<string, Drone>();
-  // ✅ state เพิ่มเติมสำหรับตรวจจับโดรนที่ไม่ขยับเกิน 10 วินาที
-  // - เก็บตำแหน่งล่าสุดที่เคลื่อนที่ (lastPos)
-  // - เก็บเวลาเริ่มนิ่ง (stationarySince) เพื่อเช็คว่าเลย 10 วิหรือยัง
   const tracking = new Map<string, { lastPos?: [number, number]; stationarySince?: number }>();
 
-  // ✅ ค่าเกณฑ์
+  // ค่าเกณฑ์
   const STATIONARY_TIMEOUT_MS = 10_000; // 10 วินาที
-  const MOVE_EPS_METERS = 2; // ถือว่า "ขยับ" ถ้าเกิน 2 เมตร (กัน jitter GPS)
+  const MOVE_EPS_METERS = 2; // ถือว่า "ขยับ" ถ้าเกิน 2 เมตร
 
-  // ✅ ตั้ง interval เพื่อลบโดรนที่นิ่งเกินเวลาออกจาก list
+  // เมื่อเชื่อมต่อสำเร็จ
+  socket.on('connect', () => {
+    console.log('Connected to Socket.IO server');
+    // Subscribe to camera
+    socket.emit('subscribe_camera', { cam_id: CAMERA_ID });
+  });
+
+  // รับข้อมูล object detection แบบ real-time
+  socket.on('object_detection', (data: any) => {
+    console.log('Received object detection:', data);
+
+    if (!data.objects || !Array.isArray(data.objects)) {
+      return;
+    }
+
+    // แปลง objects ทั้งหมดเป็น Drone
+    data.objects.forEach((obj: any) => {
+      const drone = mapDetectedObjectToDrone(obj, data.camera);
+      const id = drone.id;
+
+      // อัปเดต lastUpdate
+      drone.lastUpdate = new Date().toISOString();
+
+      // ตรวจจับการเคลื่อนที่
+      const prev = tracking.get(id);
+      const prevPos = prev?.lastPos;
+      
+      if (drone.position && prevPos) {
+        const moved = distanceMeters(prevPos, drone.position) > MOVE_EPS_METERS;
+        if (moved) {
+          tracking.set(id, { lastPos: drone.position, stationarySince: undefined });
+        } else {
+          tracking.set(id, {
+            lastPos: prevPos,
+            stationarySince: prev?.stationarySince ?? Date.now(),
+          });
+        }
+      } else {
+        tracking.set(id, { lastPos: drone.position });
+      }
+
+      droneMap.set(id, drone);
+    });
+
+    // ส่งข้อมูลอัปเดตไปให้ React
+    onUpdate(Array.from(droneMap.values()));
+  });
+
+  // ตั้ง interval เพื่อลบโดรนที่นิ่งเกินเวลา
   const pruneTimer = setInterval(() => {
     let removed = false;
     const now = Date.now();
-    // ✅ 1) ลบกรณี "นิ่ง" เกินเวลา (ยังมีข้อความเข้าแต่ตำแหน่งไม่ขยับ)
+
+    // ลบกรณี "นิ่ง" เกินเวลา
     for (const [id, info] of tracking) {
       if (info.stationarySince && now - info.stationarySince > STATIONARY_TIMEOUT_MS) {
         tracking.delete(id);
@@ -144,7 +223,8 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
         removed = true;
       }
     }
-    // ✅ 2) ลบกรณี "สัญญาณหาย/ไม่อัปเดต" เกินเวลา (ไม่มีข้อความเข้าเลย)
+
+    // ลบกรณี "สัญญาณหาย" เกินเวลา
     for (const [id, d] of droneMap) {
       const last = d.lastUpdate ? Date.parse(d.lastUpdate) : undefined;
       if (last && now - last > STATIONARY_TIMEOUT_MS) {
@@ -153,52 +233,20 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
         removed = true;
       }
     }
-    // ถ้ามีการลบ ค่อยแจ้งอัปเดตให้ React
+
     if (removed) {
       onUpdate(Array.from(droneMap.values()));
     }
   }, 1_000);
 
-  ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type !== "drone") return;
+  socket.on('disconnect', () => {
+    console.log('Disconnected from Socket.IO server');
+  });
 
-    const drone = mapBackendDrone(data);
-    const id = drone.id;
-
-    // ✅ อัปเดต lastUpdate ให้เป็นปัจจุบันเสมอเมื่อมีข้อความเข้า
-    drone.lastUpdate = new Date().toISOString();
-
-    // ✅ ตรวจจับการเคลื่อนที่: ถ้าเปลี่ยนตำแหน่งมากกว่าเกณฑ์ ให้รีเซ็ตสถานะ "นิ่ง"
-    const prev = tracking.get(id);
-    const prevPos = prev?.lastPos;
-    if (drone.position && prevPos) {
-      const moved = distanceMeters(prevPos, drone.position) > MOVE_EPS_METERS;
-      if (moved) {
-        // ขยับ: รีเซ็ตเวลาเริ่มนิ่ง และอัปเดตตำแหน่งล่าสุด
-        tracking.set(id, { lastPos: drone.position, stationarySince: undefined });
-      } else {
-        // ไม่ขยับ: ถ้ายังไม่ได้เริ่มนับ ให้นับตั้งแต่วินาทีนี้
-        tracking.set(id, {
-          lastPos: prevPos,
-          stationarySince: prev?.stationarySince ?? Date.now(),
-        });
-      }
-    } else {
-      // ครั้งแรกที่เห็นหรือไม่มีตำแหน่งก่อนหน้า: ตั้งตำแหน่งเริ่มต้นไว้ (ยังไม่ถือว่าเป็นการนิ่ง)
-      tracking.set(id, { lastPos: drone.position });
-    }
-
-    // ✅ เก็บ Drone ล่าสุดไว้ใน map
-    droneMap.set(id, drone);
-
-    // ✅ ส่งค่าออกไปให้ React ใช้ (รวมทุกโดรน)
-    onUpdate(Array.from(droneMap.values()));
-  };
-
-  // ✅ คืนฟังก์ชัน stop: ปิด WS และล้าง interval (สำคัญมาก)
+  // คืนฟังก์ชัน cleanup
   return () => {
-    try { ws.close(); } catch {}
+    socket.emit('unsubscribe_camera', { cam_id: CAMERA_ID });
+    socket.disconnect();
     clearInterval(pruneTimer);
   };
 }

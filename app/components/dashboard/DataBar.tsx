@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Drone, Search, Layers } from "lucide-react";
-import { subscribeDrones } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket สำหรับอัปเดตโดรนแบบเรียลไทม์
+import { subscribeDrones } from "@/app/libs/droneMapperData"; // ✅ ใช้ WebSocket สำหรับอัปเดตโดรนแบบเรียลไทม์
 
 interface DroneData {
   id: string;
