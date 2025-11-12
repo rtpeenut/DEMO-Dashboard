@@ -7,9 +7,10 @@ interface ZoneListPanelProps {
     zones: ProtectZone[];
     onAddZone?: () => void;
     onDeleteZone?: (id: string) => void;
+    isMarking?: boolean; // ✅ สถานะกำลังสร้างวงรัศมี
 }
 
-export default function ZoneListPanel({ zones, onAddZone, onDeleteZone }: ZoneListPanelProps) {
+export default function ZoneListPanel({ zones, onAddZone, onDeleteZone, isMarking = false }: ZoneListPanelProps) {
     return (
         <>
             {/* Section title */}
@@ -69,9 +70,13 @@ export default function ZoneListPanel({ zones, onAddZone, onDeleteZone }: ZoneLi
             {/* Add button */}
             <div
                 onClick={onAddZone}
-                className="cursor-pointer rounded-xl bg-zinc-800 flex items-center justify-center py-3 mt-3 border border-zinc-700 hover:border-amber-400 transition"
+                className={`cursor-pointer rounded-xl flex items-center justify-center py-3 mt-3 border transition ${
+                    isMarking
+                        ? 'bg-amber-500/20 border-amber-400 border-2'
+                        : 'bg-zinc-800 border-zinc-700 hover:border-amber-400'
+                }`}
             >
-                <CirclePlus size={20} className="text-amber-400" />
+                <CirclePlus size={20} className={isMarking ? 'text-amber-300' : 'text-amber-400'} />
             </div>
         </>
     );

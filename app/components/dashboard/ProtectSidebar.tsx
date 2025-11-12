@@ -17,13 +17,15 @@ interface ProtectSidebarProps {
     zones?: ProtectZone[];
     onAddZone?: () => void;
     onDeleteZone?: (id: string) => void;
+    isMarking?: boolean; // ✅ สถานะกำลังสร้างวงรัศมี
 }
 
 export default function ProtectSidebar({ 
     onClose, 
     zones = [], 
     onAddZone,
-    onDeleteZone
+    onDeleteZone,
+    isMarking = false
 }: ProtectSidebarProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [toolbarHeight, setToolbarHeight] = useState<number>(0);
@@ -69,6 +71,7 @@ export default function ProtectSidebar({
                 zones={zones} 
                 onAddZone={onAddZone}
                 onDeleteZone={onDeleteZone}
+                isMarking={isMarking}
             />
         </aside>
     );
