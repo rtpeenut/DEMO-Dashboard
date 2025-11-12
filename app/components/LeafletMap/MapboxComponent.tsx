@@ -17,6 +17,7 @@ import MapboxZoneWatcher from './MapboxZoneWatcher';
 import MapboxMarkZones from './MapboxMarkZones';
 import MapboxDroneMarkers from './MapboxDroneMarkers';
 import MapboxPinnedLocation from './MapboxPinnedLocation';
+import Mapbox3DControls from './Mapbox3DControls';
 import { latLngToMGRS, getColorForObjectId, getIconName } from '@/app/utils/mapUtils';
 import { subscribeDrones } from "@/app/libs/MapData";
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -83,6 +84,7 @@ const MapComponent = ({
   const clickedPinMarker = useRef<mapboxgl.Marker | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [mapStyle, setMapStyle] = useState(externalMapStyle || 'mapbox://styles/mapbox/satellite-streets-v12');
+  const [is3DEnabled, setIs3DEnabled] = useState(false);
 
   // Sync external map style changes
   useEffect(() => {
@@ -545,6 +547,11 @@ const MapComponent = ({
       )}
 
       {/* Sub-components for map features */}
+      <Mapbox3DControls 
+        map={map.current} 
+        is3DEnabled={is3DEnabled}
+        setIs3DEnabled={setIs3DEnabled}
+      />
       <MapboxFollowDrone 
         map={map.current} 
         followDrone={followDrone ? drones.find(d => d.id === followDrone.id) || followDrone : null} 
