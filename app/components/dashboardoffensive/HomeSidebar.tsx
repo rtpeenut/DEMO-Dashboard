@@ -55,7 +55,7 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
         transform: 'translateY(-50%)',
         right: '88px',
       }}
-      className="absolute right-4 md:right-[88px] z-[1100] w-full md:w-[395px] max-w-[calc(100vw-2rem)] md:max-w-[90vw]
+      className="absolute right-4 md:right-[88px] z-[1100] w-full md:w-[450px] max-w-[calc(100vw-2rem)] md:max-w-[90vw]
              rounded-2xl p-3 text-white transition-all flex flex-col font-prompt ui-card ui-slide-from-toolbar"
     >
       <div className="mb-2 flex items-center justify-between rounded-xl px-4 py-2 text-amber-400 font-bold tracking-wider ui-header">
@@ -86,18 +86,18 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
   
       {/* ✅ รายการโดรน */}
 
-      <div className="space-y-3 overflow-y-auto pr-1 flex-1">
+      <div className="space-y-1 overflow-y-auto pr-1 flex-1">
         {Array.isArray(drones) &&
           drones
             .filter((d) => statusFilter === 'ALL' || d.status === statusFilter)
             .map((d) => (
-              <div key={d.id} className="relative p-2">
+              <div key={d.id} className="relative pt-4 pb-2 px-2">
                 {/* ✅ กรอบครอบด้านนอกตามธีมแดชบอร์ด */}
-                <div className="absolute inset-0 rounded-2xl border-[3px] border-zinc-600/50 pointer-events-none" />
+                {/* <div className="absolute inset-0 rounded-2xl border-[3px] border-zinc-600/50 pointer-events-none" /> */}
                 
-                {/* ✅ แสดง Frame ID และ Cam ID ที่มุมบนซ้าย */}
+                {/* ✅ แสดง Frame ID และ Cam ID ภายในกรอบด้านบน */}
                 {(d.frameId || d.camId) && (
-                  <div className="absolute -top-2 left-4 bg-zinc-800 px-3 py-0.5 rounded-full border border-zinc-600 text-[10px] font-semibold z-10">
+                  <div className="absolute top-2 left-4 bg-zinc-500/80 px-3 py-0.5 rounded-md border border-zinc-600/50 text-[10px] font-semibold">
                     <span className="text-zinc-300">
                       {d.frameId && <span>Frame: {d.frameId}</span>}
                       {d.frameId && d.camId && <span className="mx-1.5 text-zinc-600">|</span>}

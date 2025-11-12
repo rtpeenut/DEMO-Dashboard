@@ -203,8 +203,25 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
   const ws = new WebSocket("ws://82.26.104.161:3000/ws");
   // const ws = new WebSocket("ws://handwoven-audra-nonsusceptible.ngrok-free.dev/ws");
 
+  // ✅ สร้าง mockup drone 1 ตัวสำหรับทดสอบ
+  const mockDrone: Drone = {
+    id: "MOCK-001",
+    callsign: "SIM-1",
+    type: "drone",
+    status: "HOSTILE",
+    speedKt: 13.2,
+    altitudeFt: 393.701,
+    headingDeg: 0,
+    position: [13.75, 100.50],
+    lastUpdate: new Date().toISOString(),
+    frameId: "id1",
+    camId: "cam1",
+    tokenId: "token-001",
+  };
 
   const droneMap = new Map<string, Drone>();
+  // ✅ เพิ่ม mockup drone เข้าไปใน map
+  droneMap.set(mockDrone.id, mockDrone);
   // ✅ state เพิ่มเติมสำหรับตรวจจับโดรนที่ไม่ขยับเกิน 10 วินาที
   // - เก็บตำแหน่งล่าสุดที่เคลื่อนที่ (lastPos)
   // - เก็บเวลาเริ่มนิ่ง (stationarySince) เพื่อเช็คว่าเลย 10 วิหรือยัง
