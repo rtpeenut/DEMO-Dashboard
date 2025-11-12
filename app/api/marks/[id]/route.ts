@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 
 // ✅ Proxy API สำหรับ marks - ดึงจาก backend
 const getBackendUrl = () => {
-  return process.env.MARK_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  return process.env.MARK_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://82.26.104.161:3000";
 };
 
 const buildBackendUrl = (path: string) => {
