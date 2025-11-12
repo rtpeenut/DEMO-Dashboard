@@ -580,7 +580,11 @@ const MapComponent = ({
         drones={drones} 
         onDroneInZone={handleDroneInZone}
       />
-      <MapboxDroneMarkers map={map.current} onSelect={onSelectDrone} />
+      <MapboxDroneMarkers 
+        map={map.current} 
+        drones={drones}
+        onSelect={onSelectDrone} 
+      />
     </Box>
   );
 };

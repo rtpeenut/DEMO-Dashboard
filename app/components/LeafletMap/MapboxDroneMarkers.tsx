@@ -7,42 +7,23 @@ import { getDroneColorByAltitude } from "@/app/utils/mapUtils";
 
 interface MapboxDroneMarkersProps {
   map: mapboxgl.Map | null;
+  drones: Drone[]; // ✅ รับข้อมูลจาก props แทนการ subscribe เอง
   onSelect?: (d: Drone) => void;
 }
 
 const SOURCE_ID = 'drones-source';
 const LAYER_ID = 'drones-layer';
 
-export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkersProps) {
-  const [drones, setDrones] = useState<Drone[]>([]);
+export default function MapboxDroneMarkers({ map, drones, onSelect }: MapboxDroneMarkersProps) {
   const dronesRef = useRef<Drone[]>([]);
   const onSelectRef = useRef(onSelect);
   const layersAddedRef = useRef(false);
 
-  // Update onSelect ref
+  // Update refs
   useEffect(() => {
+    dronesRef.current = drones;
     onSelectRef.current = onSelect;
-  }, [onSelect]);
-
-  // Subscribe to drones
-  useEffect(() => {
-    console.log('🔌 Subscribing to drones...');
-    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
-    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
-      if (Array.isArray(list)) {
-        console.log('📡 Received drones update:', list.length, 'drones');
-        dronesRef.current = list;
-        setDrones(list);
-      } else {
-        console.warn("⚠️ Invalid drones data:", list);
-      }
-    });
-    
-    return () => {
-      console.log('🔌 Unsubscribing from drones');
-      stop();
-    };
-  }, []);
+  }, [drones, onSelect]);
 
   // Initialize source and layer
   useEffect(() => {
@@ -218,11 +199,20 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
     }
 
     // Convert drones to GeoJSON features
+    console.log('🔍 Processing drones:', drones.length, 'total');
     const features = drones
-      .filter(drone => drone.position && drone.position.length >= 2)
+      .filter(drone => {
+        const hasPosition = drone.position && Array.isArray(drone.position) && drone.position.length >= 2;
+        if (!hasPosition) {
+          console.warn('⚠️ Drone missing position:', drone.id, drone.position);
+        }
+        return hasPosition;
+      })
       .map(drone => {
         const [lat, lng] = drone.position;
         const color = getDroneColorByAltitude(drone.altitudeFt);
+        
+        console.log('✅ Creating marker for:', drone.id, 'at', [lng, lat]);
         
         return {
           type: 'Feature' as const,
@@ -232,12 +222,12 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
           },
           properties: {
             id: drone.id,
-            obj_id: drone.id, // ✅ สำหรับ tooltip
+            obj_id: drone.id,
             callsign: drone.callsign,
             altitude: drone.altitudeFt,
-            alt: drone.alt || drone.altitudeFt / 3.28084, // ✅ เก็บค่าเมตร
+            alt: drone.alt || drone.altitudeFt / 3.28084,
             speed: drone.speedKt,
-            speed_kt: drone.speedKt, // ✅ สำหรับ tooltip
+            speed_kt: drone.speedKt,
             color: color
           }
         };
@@ -248,9 +238,11 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
       features: features
     });
 
-    console.log('📍 Updated drone positions:', features.length, 'drones');
+    console.log('📍 Updated drone positions:', features.length, 'drones visible on map');
     if (features.length > 0) {
       console.log('📍 Sample drone:', features[0].properties.callsign, 'at', features[0].geometry.coordinates);
+    } else {
+      console.warn('⚠️ No drones to display on map!');
     }
   }, [map, drones]);
 
@@ -259,16 +251,20 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
     return () => {
       if (!map) return;
       
-      // Remove layer and source
-      if (map.getLayer(LAYER_ID)) {
-        map.removeLayer(LAYER_ID);
+      try {
+        // Remove layer and source
+        if (map.getLayer && map.getLayer(LAYER_ID)) {
+          map.removeLayer(LAYER_ID);
+        }
+        if (map.getSource && map.getSource(SOURCE_ID)) {
+          map.removeSource(SOURCE_ID);
+        }
+        
+        layersAddedRef.current = false;
+        console.log('🧹 Cleaned up drone layers');
+      } catch (error) {
+        console.warn('⚠️ Error during cleanup:', error);
       }
-      if (map.getSource(SOURCE_ID)) {
-        map.removeSource(SOURCE_ID);
-      }
-      
-      layersAddedRef.current = false;
-      console.log('🧹 Cleaned up drone layers');
     };
   }, [map]);
 

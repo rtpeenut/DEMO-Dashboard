@@ -16,8 +16,11 @@ interface DroneDetailProps {
     mgrs?: string;
     position?: [number, number];
     imageUrl?: string;
-    idCamera?: string; // ✅ รอรับจาก API
-    size?: string; // ✅ รอรับจาก API
+    idCamera?: string;
+    size?: string;
+    alt?: number; // ✅ altitude ในหน่วยเมตร
+    status?: "FRIEND" | "HOSTILE" | "UNKNOWN"; // ✅ สถานะโดรน
+    camId?: string; // ✅ camera id
   };
   onClose?: () => void;
   onFollow?: (drone: any, isFollowing: boolean) => void;

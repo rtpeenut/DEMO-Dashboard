@@ -115,17 +115,17 @@ export default function BottomHUD({
 
   return (
     <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
-      <div className="flex items-center gap-2 px-4 py-3 rounded-full bg-black/60 backdrop-blur-xl border border-white/10 shadow-2xl">
+      <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-zinc-900/80 backdrop-blur-xl border border-zinc-700 shadow-2xl ui-card">
         {/* Filter Buttons */}
         {filterButtons.map((btn) => (
           <button
             key={btn.type}
             onClick={() => onFilterChange(btn.type)}
             className={`
-              flex items-center gap-2 px-4 py-2 rounded-full transition-all
+              flex items-center gap-2 px-4 py-2 rounded-lg transition-all
               ${filter === btn.type 
-                ? `${btn.color} bg-white/10` 
-                : 'text-gray-400 hover:bg-white/5'
+                ? `${btn.color} bg-zinc-800` 
+                : 'text-zinc-400 hover:bg-zinc-800/50'
               }
               ${btn.hoverColor}
             `}
@@ -144,24 +144,24 @@ export default function BottomHUD({
         ))}
 
         {/* Divider */}
-        <div className="w-px h-8 bg-white/20 mx-1" />
+        <div className="w-px h-8 bg-zinc-700 mx-1" />
 
         {/* Status Indicator */}
         <div className="flex items-center gap-2 px-3">
           {isLoading ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
-              <span className="text-xs text-gray-400">กำลังโหลด...</span>
+              <span className="text-xs text-zinc-400">กำลังโหลด...</span>
             </>
           ) : counts.all === 0 ? (
             <>
-              <WifiOff className="w-4 h-4 text-gray-500" />
-              <span className="text-xs text-gray-400">ไม่มีข้อมูล</span>
+              <WifiOff className="w-4 h-4 text-zinc-500" />
+              <span className="text-xs text-zinc-400">ไม่มีข้อมูล</span>
             </>
           ) : (
             <>
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-              <span className="text-xs text-gray-400">ออนไลน์</span>
+              <span className="text-xs text-zinc-400">ออนไลน์</span>
             </>
           )}
         </div>
@@ -169,7 +169,7 @@ export default function BottomHUD({
         {/* Zoom to Fit Button */}
         <button
           onClick={onZoomToFit}
-          className="flex items-center gap-2 px-4 py-2 rounded-full text-blue-400 hover:text-blue-300 hover:bg-white/5 transition-all"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg text-amber-400 hover:text-amber-300 hover:bg-zinc-800/50 transition-all"
           aria-label="ซูมไปยังตำแหน่งทั้งหมด"
           title={cameraInfo 
             ? `กล้อง: ${cameraInfo.name}\nสถานที่: ${cameraInfo.location}\nสถาบัน: ${cameraInfo.institute}`
@@ -186,8 +186,8 @@ export default function BottomHUD({
 
       {/* Camera Info Tooltip (shown on hover over zoom button) */}
       {cameraInfo && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-lg bg-black/80 backdrop-blur-sm border border-white/10 text-xs text-gray-300 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
-          <div className="font-semibold text-white mb-1">{cameraInfo.name}</div>
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 rounded-xl bg-zinc-900/90 backdrop-blur-sm border border-zinc-700 text-xs text-zinc-300 opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+          <div className="font-semibold text-amber-400 mb-1">{cameraInfo.name}</div>
           <div>สถานที่: {cameraInfo.location}</div>
           <div>สถาบัน: {cameraInfo.institute}</div>
         </div>

@@ -25,7 +25,6 @@ export default function HomeSidebar({
   const [drones, setDrones] = useState<DroneType[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<DroneStatus | 'ALL'>(externalFilter || 'ALL');
-  const [frame, setFrame] = useState<Frame | null>(null);
 
   // ✅ Sync filter with external (from HUD)
   useEffect(() => {
@@ -33,19 +32,6 @@ export default function HomeSidebar({
       setStatusFilter(externalFilter);
     }
   }, [externalFilter]);
-
-  // ✅ Update frame when cam_id changes
-  useEffect(() => {
-    if (selectedCamId) {
-      const f = getFrameByCamId(selectedCamId);
-      setFrame(f);
-    } else {
-      const frames = getAllFrames();
-      if (frames.length > 0) {
-        setFrame(frames[0]);
-      }
-    }
-  }, [selectedCamId]);
 
   const ref = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
@@ -101,24 +87,39 @@ export default function HomeSidebar({
           </button>
         )}
       </div>
-      {/* ✅ Camera Info */}
-      {frame?.token_id?.camera_info && (
-        <div className="mb-3 rounded-xl bg-zinc-800/80 border border-zinc-700 px-4 py-3">
-          <div className="flex items-center gap-2 text-amber-400 mb-2">
-            <Camera size={16} />
-            <span className="font-semibold text-sm">ข้อมูลกล้อง</span>
-          </div>
-          <div className="text-xs text-zinc-300 space-y-1">
-            <div><span className="text-zinc-400">ชื่อ:</span> {frame.token_id.camera_info.name}</div>
-            <div><span className="text-zinc-400">สถานที่:</span> {frame.token_id.camera_info.location}</div>
-            <div><span className="text-zinc-400">สถาบัน:</span> {frame.token_id.camera_info.institute}</div>
-          </div>
-        </div>
-      )}
-
-      <div className="mb-3 rounded-xl bg-zinc-800 px-4 py-2 text-zinc-300 font-sans">
-        FLIGHT
+      {/* ✅ Information Header */}
+      <div className="mb-2 rounded-xl bg-zinc-800 px-4 py-2 text-zinc-300 font-sans text-sm">
+        INFORMATION
       </div>
+
+      {/* ✅ Camera Info - แสดงด้านนอก */}
+      {(() => {
+        const allFrames = getAllFrames();
+        const currentFrame = selectedCamId ? getFrameByCamId(selectedCamId) : allFrames[0];
+        
+        return currentFrame?.token_id?.camera_info ? (
+          <div className="mb-3 rounded-xl bg-zinc-800/60 border border-zinc-700/50 px-3 py-2.5">
+            <div className="flex items-center gap-2 text-amber-400 mb-2">
+              <Camera size={14} />
+              <span className="font-semibold text-xs uppercase">Camera Information</span>
+            </div>
+            <div className="text-xs text-zinc-300 space-y-1">
+              <div className="flex gap-2">
+                <span className="text-zinc-500 min-w-[60px]">ชื่อ:</span>
+                <span className="text-zinc-200">{currentFrame.token_id.camera_info.name}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="text-zinc-500 min-w-[60px]">สถานที่:</span>
+                <span className="text-zinc-200">{currentFrame.token_id.camera_info.location}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="text-zinc-500 min-w-[60px]">สถาบัน:</span>
+                <span className="text-zinc-200">{currentFrame.token_id.camera_info.institute}</span>
+              </div>
+            </div>
+          </div>
+        ) : null;
+      })()}
 
       {error && (
         <div className="m-2 rounded-lg bg-red-500/20 px-3 py-2 text-sm text-red-200">
@@ -129,78 +130,111 @@ export default function HomeSidebar({
         <div className="m-2 text-sm text-zinc-400">Loading drones...</div>
       )}
 
-      {/* ✅ รายการโดรน */}
-      <div className="space-y-3 overflow-y-auto pr-1 flex-1">
-        {Array.isArray(drones) &&
-          drones
-            .filter((d) => {
-              // Filter by cam_id if selected
-              if (selectedCamId && d.camId !== selectedCamId) return false;
-              // Filter by status
-              return statusFilter === 'ALL' || d.status === statusFilter;
-            })
-            .map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => onSelectDrone?.(d)}
-                className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 text-left transition hover:border-amber-400 hover:bg-zinc-800"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
-                    <Drone size={32} />
-                  </div>
-                  <div className="flex flex-1 flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-amber-400 font-extrabold">{d.callsign}</div>
-                        <div className="text-sm text-zinc-300">&bull; {d.type}</div>
-                        {d.alt !== undefined && (
-                          <div className="text-xs text-zinc-500 mt-1">
-                            Alt: {d.alt.toFixed(0)} m | Speed: {d.speedKt.toFixed(1)} kt
-                          </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-zinc-400">STATUS</div>
-                        <div
-                          className={`font-semibold ${d.status === 'HOSTILE'
-                              ? 'text-red-400'
-                              : d.status === 'FRIEND'
-                                ? 'text-green-400'
-                                : 'text-zinc-300'
-                            }`}
-                        >
-                          {d.status}
-                        </div>
-                      </div>
-                    </div>
+      {/* ✅ รายการโดรนจัดกลุ่มตาม Frame และ Camera */}
+      <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+        {(() => {
+          // Group drones by camId
+          const groupedDrones = new Map<string, DroneType[]>();
+          const filteredDrones = drones.filter((d) => {
+            if (selectedCamId && d.camId !== selectedCamId) return false;
+            return statusFilter === 'ALL' || d.status === statusFilter;
+          });
 
-                    {/* SPEED / ALTITUDE / HEADING */}
-                    <div className="flex justify-center gap-9 text-sm">
-                      <div className="text-center">
-                        <div className="text-zinc-400 text-xs">SPEED</div>
-                        <div className="text-amber-400 font-bold">
-                          {d.speedKt?.toFixed(1)} <span className="text-xs">kt</span>
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-zinc-400 text-xs">ALTITUDE</div>
-                        <div className="text-amber-400 font-bold">
-                          {d.altitudeFt?.toLocaleString()} <span className="text-xs">ft</span>
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-zinc-400 text-xs">HEADING</div>
-                        <div className="text-amber-400 font-bold">
-                          {d.headingDeg?.toFixed(2)} <span className="text-xs">°</span>
-                        </div>
-                      </div>
-                    </div>
+          filteredDrones.forEach((d) => {
+            const camId = d.camId || 'unknown';
+            if (!groupedDrones.has(camId)) {
+              groupedDrones.set(camId, []);
+            }
+            groupedDrones.get(camId)!.push(d);
+          });
+
+          return Array.from(groupedDrones.entries()).map(([camId, drones]) => {
+            const frameData = getFrameByCamId(camId);
+            const framId = frameData?.fram_id || 'unknown';
+            
+            return (
+              <div key={camId} className="rounded-2xl bg-zinc-900/60 border border-zinc-700/50 p-4">
+                {/* Header: Frame ID และ Camera ID */}
+                <div className="mb-3 space-y-1.5">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-zinc-400 font-medium">FRAME:</span>
+                    <span className="text-amber-400 font-bold text-base">{framId}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-zinc-400 font-medium text-xs">CAM:</span>
+                    <span className="text-white text-[10px] font-mono break-all">{camId}</span>
                   </div>
                 </div>
-              </button>
-            ))}
+
+                {/* รายการโดรนในกลุ่มนี้ */}
+                <div className="space-y-3">
+                  {drones.map((d) => (
+                    <button
+                      key={d.id}
+                      type="button"
+                      onClick={() => onSelectDrone?.(d)}
+                      className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-3 text-left transition hover:border-amber-400 hover:bg-zinc-800"
+                    >
+                      <div className="flex items-center gap-3">
+                        {/* Icon */}
+                        <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
+                          <Drone size={24} className="text-zinc-400" />
+                        </div>
+
+                        {/* ข้อมูลโดรน */}
+                        <div className="flex flex-1 flex-col gap-2">
+                          {/* บรรทัดแรก: ชื่อและสถานะ */}
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="text-amber-400 font-bold text-base">{d.callsign}</div>
+                              <div className="text-xs text-zinc-400">&bull; {d.type}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-[10px] text-zinc-500 uppercase">STATUS</div>
+                              <div
+                                className={`font-bold text-sm ${
+                                  d.status === 'HOSTILE'
+                                    ? 'text-red-400'
+                                    : d.status === 'FRIEND'
+                                    ? 'text-green-400'
+                                    : 'text-zinc-300'
+                                }`}
+                              >
+                                {d.status}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* บรรทัดที่สอง: Speed, Altitude, Heading */}
+                          <div className="flex justify-between gap-4 text-xs">
+                            <div className="text-center">
+                              <div className="text-zinc-500 uppercase">SPEED</div>
+                              <div className="text-amber-400 font-bold">
+                                {d.speedKt?.toFixed(1)} <span className="text-[10px]">kt</span>
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-zinc-500 uppercase">ALTITUDE</div>
+                              <div className="text-amber-400 font-bold">
+                                {d.altitudeFt?.toLocaleString()} <span className="text-[10px]">ft</span>
+                              </div>
+                            </div>
+                            <div className="text-center">
+                              <div className="text-zinc-500 uppercase">HEADING</div>
+                              <div className="text-amber-400 font-bold">
+                                {d.headingDeg?.toFixed(2)} <span className="text-[10px]">°</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          });
+        })()}
       </div>
 
       {/* ✅ ตัวกรองสถานะโดรน */}
