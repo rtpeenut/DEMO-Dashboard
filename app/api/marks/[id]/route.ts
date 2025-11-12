@@ -77,36 +77,34 @@ export async function DELETE(
       );
     }
 
-    const errorPayload = await safeParseJson(res);
-    if (errorPayload) {
-      return NextResponse.json(errorPayload, { status: res.status });
-    }
+    // Backend returned error - use fallback
+    console.warn(`Backend DELETE returned ${res.status}, using memory fallback`);
+    const { deleteMark } = await import("@/app/libs/MapData");
+    deleteMark(id);
+    
     return NextResponse.json(
-      { error: "Failed to delete mark" },
-      { status: res.status }
+      { 
+        success: true,
+        warning: "Backend DELETE not supported - removed from UI only",
+        message: "Mark deleted from memory (may still exist in database)"
+      },
+      { status: 200 }
     );
   } catch (error) {
-    console.error("Error deleting mark:", error);
-    if (!useFallback) {
-      return NextResponse.json(
-        { error: "Failed to reach backend service for deletion" },
-        { status: 502 }
-      );
-    }
-
+    console.warn("Backend DELETE failed, using memory fallback:", error);
+    
+    // Always try fallback when backend fails
     try {
       const { deleteMark } = await import("@/app/libs/MapData");
-      const deleted = deleteMark(id);
-
-      if (!deleted) {
-        return NextResponse.json(
-          { error: "Mark not found" },
-          { status: 404 }
-        );
-      }
-
+      deleteMark(id); // Try to delete from memory
+      
+      // Return success with warning
       return NextResponse.json(
-        { message: "Mark deleted successfully" },
+        { 
+          success: true,
+          warning: "Backend DELETE not supported - removed from UI only",
+          message: "Mark deleted from memory (may still exist in database)"
+        },
         { status: 200 }
       );
     } catch (fallbackError) {

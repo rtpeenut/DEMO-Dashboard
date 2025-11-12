@@ -84,6 +84,7 @@ export async function POST(request: Request) {
     const backendUrl = getBackendUrl();
     const url = `${backendUrl}/marks`;
     
+    console.log(`[POST /marks] Attempting to save to backend: ${url}`);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
     });
     
     if (!res.ok) {
+      console.warn(`[POST /marks] Backend failed (${res.status}), using memory fallback`);
       // Fallback to in-memory storage if backend is not available
       const { addMark } = await import("@/app/libs/MapData");
       const newMark = addMark({
@@ -105,6 +107,7 @@ export async function POST(request: Request) {
       return NextResponse.json(newMark, { status: 201 });
     }
     
+    console.log(`[POST /marks] Successfully saved to backend database`);
     const newMark = await res.json();
     // Transform backend format to frontend format
     const formatted = {
