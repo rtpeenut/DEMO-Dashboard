@@ -242,8 +242,7 @@ export function getAllFrames(): Frame[] {
   return Array.from(frameStore.values());
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
-  const ws = new WebSocket("ws://localhost:3000/ws");
-  // const ws = new WebSocket("ws://82.26.104.161:3000/ws");
+  const ws = new WebSocket("ws://82.26.104.161:3000/ws");
   // const ws = new WebSocket("ws://ace42530b32d.ngrok-free.app/ws");
 
 
