@@ -19,12 +19,22 @@ const safeParseJson = async (res: Response) => {
   }
 };
 
+const isPromise = <T = unknown>(value: unknown): value is Promise<T> => {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as any).then === "function"
+  );
+};
+
 // ✅ DELETE /api/marks/[id] - Delete a mark by id
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> | { id: string } }
 ) {
-  const resolvedParams = params instanceof Promise ? await params : params;
+  const resolvedParams = isPromise<{ id: string }>(params)
+    ? await params
+    : params;
   const id = resolvedParams?.id;
 
   if (!id) {
