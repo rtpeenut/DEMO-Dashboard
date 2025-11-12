@@ -33,7 +33,7 @@ export default function HomePage() {
   const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
   const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
-  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
+  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
   const [showMark, setShowMark] = useState(false);
   const [marks, setMarks] = useState<

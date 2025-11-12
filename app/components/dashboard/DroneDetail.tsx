@@ -1,7 +1,8 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Route, Plus } from "lucide-react";
 import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket/REST ตามการตั้งค่า
+import { latLngToMGRS } from "@/app/utils/mapUtils";
 
 interface DroneDetailProps {
   drone: {
@@ -34,6 +35,16 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
     });
     return stop; // cleanup
   }, [drone.id]);
+
+  // Calculate MGRS from position
+  const mgrsCoordinate = useMemo(() => {
+    if (droneData.mgrs) return droneData.mgrs;
+    if (droneData.position && droneData.position.length === 2) {
+      const [lat, lng] = droneData.position;
+      return latLngToMGRS(lat, lng, 5);
+    }
+    return "—";
+  }, [droneData.position, droneData.mgrs]);
 
   return (
     <div className="absolute top-14 left-4 right-4 md:right-auto z-[1200] w-auto md:w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl overflow-hidden font-prompt">
@@ -86,7 +97,7 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
           <div className="font-mono text-sm text-zinc-200">{droneData.id}</div>
           <div className="text-[13px] text-zinc-400 mt-2">MGRS:</div>
           <div className="bg-zinc-900 rounded-md px-2 py-1 text-xs text-zinc-300 font-mono">
-            {droneData.mgrs || "—"}
+            {mgrsCoordinate}
           </div>
         </div>
 

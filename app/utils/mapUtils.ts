@@ -82,3 +82,45 @@ export function calculateDistance(lat1: number, lng1: number, lat2: number, lng2
 
   return R * c;
 }
+
+// คำนวณสีของโดรนตาม altitude (ฟุต)
+export function getDroneColorByAltitude(altitudeFt: number): string {
+  const altitudeM = altitudeFt * 0.3048; // แปลงฟุตเป็นเมตร
+  
+  if (altitudeM < 50) {
+    // ต่ำมาก (0-50 m): น้ำเงินเข้ม
+    return '#0047AB';
+  } else if (altitudeM < 150) {
+    // กลางต่ำ (50-150 m): ฟ้า
+    return '#00BFFF';
+  } else if (altitudeM < 300) {
+    // กลาง (150-300 m): เขียวอมเหลือง
+    return '#ADFF2F';
+  } else if (altitudeM < 600) {
+    // สูง (300-600 m): เหลือง-ส้ม (gradient)
+    const ratio = (altitudeM - 300) / 300;
+    return interpolateColor('#FFD700', '#FFA500', ratio);
+  } else {
+    // สูงมาก (>600 m): แดง-แดงเข้ม (gradient)
+    const ratio = Math.min((altitudeM - 600) / 400, 1);
+    return interpolateColor('#FF4500', '#FF0000', ratio);
+  }
+}
+
+// ฟังก์ชันช่วยสำหรับ interpolate สีระหว่างสองสี
+function interpolateColor(color1: string, color2: string, ratio: number): string {
+  const hex = (c: string) => parseInt(c.substring(1), 16);
+  const r1 = (hex(color1) >> 16) & 0xff;
+  const g1 = (hex(color1) >> 8) & 0xff;
+  const b1 = hex(color1) & 0xff;
+  
+  const r2 = (hex(color2) >> 16) & 0xff;
+  const g2 = (hex(color2) >> 8) & 0xff;
+  const b2 = hex(color2) & 0xff;
+  
+  const r = Math.round(r1 + (r2 - r1) * ratio);
+  const g = Math.round(g1 + (g2 - g1) * ratio);
+  const b = Math.round(b1 + (b2 - b1) * ratio);
+  
+  return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
+}

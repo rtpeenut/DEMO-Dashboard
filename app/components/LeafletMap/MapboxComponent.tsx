@@ -83,7 +83,7 @@ const MapComponent = ({
   const [clickedPin, setClickedPin] = useState<{ lng: number; lat: number } | null>(null);
   const clickedPinMarker = useRef<mapboxgl.Marker | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
-  const [mapStyle, setMapStyle] = useState(externalMapStyle || 'mapbox://styles/mapbox/satellite-streets-v12');
+  const [mapStyle, setMapStyle] = useState(externalMapStyle || 'mapbox://styles/mapbox/dark-v11');
   const [is3DEnabled, setIs3DEnabled] = useState(false);
 
   // Sync external map style changes
@@ -336,7 +336,7 @@ const MapComponent = ({
       const lat = typeof obj.lat === 'number' ? obj.lat : parseFloat(obj.lat);
       const lng = typeof obj.lng === 'number' ? obj.lng : parseFloat(obj.lng);
 
-      const marker = new mapboxgl.Marker(el)
+      const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
         .setLngLat([lng, lat])
         .addTo(map.current!);
 
@@ -397,7 +397,7 @@ const MapComponent = ({
             </svg>
           `;
           
-          const marker = new mapboxgl.Marker(pinEl)
+          const marker = new mapboxgl.Marker({ element: pinEl, anchor: 'bottom' })
             .setLngLat([lng, lat])
             .addTo(m);
           
