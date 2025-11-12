@@ -5,14 +5,14 @@ import { useState, useEffect } from "react";
 import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
 
 const MapboxComponent = dynamic(() => import("@/app/components/LeafletMap/MapboxComponent"), { ssr: false });
-const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolbar"), { ssr: false });
-const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
-const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
-const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
-const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectSidebar"), { ssr: false });
-const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
-const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
-const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
+const RightToolbar = dynamic(() => import("@/app/components/dashboardoffensive/RightToolbar"), { ssr: false });
+const HomeSidebar = dynamic(() => import("@/app/components/dashboardoffensive/HomeSidebar"), { ssr: false });
+const DroneDetail = dynamic(() => import("@/app/components/dashboardoffensive/DroneDetail"), { ssr: false });
+const Databar = dynamic(() => import("@/app/components/dashboardoffensive/DataBar"), { ssr: false });
+const ProtectSidebar = dynamic(() => import("@/app/components/dashboardoffensive/ProtectSidebar"), { ssr: false });
+const NotificationSidebar = dynamic(() => import("@/app/components/dashboardoffensive/NotificationSidebar"), { ssr: false });
+const SettingsSidebar = dynamic(() => import("@/app/components/dashboardoffensive/SettingsSidebar"), { ssr: false });
+const DroneCounter = dynamic(() => import("@/app/components/dashboardoffensive/DroneCounter"), { ssr: false });
 
 
 export default function HomePage() {
