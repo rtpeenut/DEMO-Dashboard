@@ -12,6 +12,7 @@ const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ss
 const MarkSidebar = dynamic(() => import("@/app/components/dashboard/MarkSidebar"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
+const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
 
 
 export default function HomePage() {
@@ -245,6 +246,9 @@ export default function HomePage() {
             }
           }}
         />
+
+        {/* ✅ แสดงจำนวนโดรนทั้งหมดและวงที่สร้าง */}
+        <DroneCounter marksCount={marks.length} />
 
 
         {/* ✅ กล่องรายละเอียดโดรน */}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import mapboxgl from "mapbox-gl";
-import { Drone, subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase";
+import { Drone, subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
 import { getDroneColorByAltitude } from "@/app/utils/mapUtils";
 
 interface MapboxDroneMarkersProps {

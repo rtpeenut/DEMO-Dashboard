@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
 import { Route, Plus } from "lucide-react";
-import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase"; // ✅ ใช้ WebSocket/REST ตามการตั้งค่า
+import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData"; // ✅ ใช้ WebSocket/REST ตามการตั้งค่า
 import { latLngToMGRS } from "@/app/utils/mapUtils";
 
 interface DroneDetailProps {
