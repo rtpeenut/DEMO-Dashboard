@@ -5,8 +5,8 @@ const getBackendUrl = () => {
   return process.env.MARK_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://82.26.104.161:3000";
 };
 
-const buildBackendUrl = (path: string) => {
-  const base = getBackendUrl();
+const buildBackendUrl = (path: string, baseOverride?: string) => {
+  const base = baseOverride ?? getBackendUrl();
   const normalizedBase = base.endsWith("/") ? base : `${base}/`;
   return new URL(path, normalizedBase).toString();
 };
@@ -27,6 +27,10 @@ const isPromise = <T = unknown>(value: unknown): value is Promise<T> => {
   );
 };
 
+const shouldUseFallback = (backendUrl: string) => {
+  return /(?:^|\/\/)(localhost|127\.0\.0\.1)(?::\d+)?/i.test(backendUrl);
+};
+
 // ✅ DELETE /api/marks/[id] - Delete a mark by id
 export async function DELETE(
   request: Request,
@@ -44,13 +48,17 @@ export async function DELETE(
     );
   }
 
+  const backendUrl = getBackendUrl();
+  const useFallback = shouldUseFallback(backendUrl);
+
   try {
-    const url = buildBackendUrl(`marks/${encodeURIComponent(id)}`);
+    const url = buildBackendUrl(`marks/${encodeURIComponent(id)}`, backendUrl);
 
     const res = await fetch(url, {
       method: "DELETE",
       headers: {
         "Content-Type": "application/json",
+        Connection: "close",
       },
       cache: "no-store",
     });
@@ -79,18 +87,24 @@ export async function DELETE(
     );
   } catch (error) {
     console.error("Error deleting mark:", error);
-    // Fallback to in-memory storage
+    if (!useFallback) {
+      return NextResponse.json(
+        { error: "Failed to reach backend service for deletion" },
+        { status: 502 }
+      );
+    }
+
     try {
       const { deleteMark } = await import("@/app/libs/MapData");
       const deleted = deleteMark(id);
-      
+
       if (!deleted) {
         return NextResponse.json(
           { error: "Mark not found" },
           { status: 404 }
         );
       }
-      
+
       return NextResponse.json(
         { message: "Mark deleted successfully" },
         { status: 200 }
