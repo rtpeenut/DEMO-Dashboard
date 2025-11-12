@@ -9,7 +9,7 @@ export async function GET() {
     // ✅ ใช้ backend URL (เหมือนกับ marks API)
     const backendUrl = process.env.DRONE_API_URL || 
                       process.env.NEXT_PUBLIC_BACKEND_URL || 
-                      "http://localhost:3000";
+                      "http://82.26.104.161:3000:3000";
     
     const url = `${backendUrl}/frames/latest`;
     
