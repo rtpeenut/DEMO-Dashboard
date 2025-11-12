@@ -13,6 +13,7 @@ const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectS
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
+const BottomHUD = dynamic(() => import("@/app/components/dashboard/BottomHUD"), { ssr: false });
 
 
 export default function HomePage() {
@@ -50,6 +51,10 @@ export default function HomePage() {
   const [marks, setMarks] = useState<Mark[]>([]);
   const [isMarking, setIsMarking] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
+  const [drones, setDrones] = useState<Drone[]>([]); // ✅ เก็บ drones สำหรับ HUD และ Sidebar
+  const [filter, setFilter] = useState<'ALL' | 'FRIEND' | 'HOSTILE' | 'UNKNOWN'>('ALL');
+  const [selectedCamId, setSelectedCamId] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
 
   // ✅ Load marks from API on initial render
   useEffect(() => {
@@ -169,8 +174,18 @@ export default function HomePage() {
     const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
     const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
       if (!Array.isArray(list)) return;
-      // map Drone → DetectedObject
-      const objs = list
+      
+      setIsLoading(false);
+      setDrones(list);
+      
+      // ✅ Filter by selected filter
+      const filtered = list.filter((d: any) => {
+        if (selectedCamId && d.camId !== selectedCamId) return false;
+        return filter === 'ALL' || d.status === filter;
+      });
+      
+      // map Drone → DetectedObject for map
+      const objs = filtered
         .filter((d: any) => Array.isArray(d.position) && d.position.length === 2)
         .map((d: any) => ({
           id: d.id,
@@ -180,12 +195,36 @@ export default function HomePage() {
           lng: d.position[1],
           altitudeFt: d.altitudeFt,
           speedKt: d.speedKt,
+          alt: d.alt, // ✅ เพิ่ม alt สำหรับ tooltip
           callsign: d.callsign,
         }));
       setMapboxObjects(objs);
     });
     return stop;
-  }, []);
+  }, [filter, selectedCamId]);
+
+  // ✅ Zoom to fit function
+  const handleZoomToFit = () => {
+    const filtered = drones.filter((d) => {
+      if (selectedCamId && d.camId !== selectedCamId) return false;
+      return true;
+    });
+    
+    if (filtered.length === 0) return;
+    
+    const positions = filtered
+      .map(d => d.position)
+      .filter((pos): pos is [number, number] => 
+        Array.isArray(pos) && pos.length === 2 && typeof pos[0] === 'number' && typeof pos[1] === 'number'
+      );
+    
+    if (positions.length === 0) return;
+    
+    // Call mapbox zoom to fit
+    if ((window as any).mapboxZoomToFit) {
+      (window as any).mapboxZoomToFit(positions);
+    }
+  };
 
   return (
     <main className="h-screen w-screen">
@@ -212,7 +251,16 @@ export default function HomePage() {
         {openHome && (
           <HomeSidebar
             onClose={() => setOpenHome(false)}
-            onSelectDrone={(drone) => setSelectedDrone(drone)}
+            onSelectDrone={(drone) => {
+              setSelectedDrone(drone);
+              // Pan/zoom to drone position
+              if (drone.position && (window as any).mapboxFlyTo) {
+                (window as any).mapboxFlyTo(drone.position[0], drone.position[1]);
+              }
+            }}
+            selectedCamId={selectedCamId}
+            filter={filter}
+            onFilterChange={setFilter}
           />
         )}
         {openData && <Databar onClose={() => setOpenData(false)} />}
@@ -251,6 +299,16 @@ export default function HomePage() {
 
         {/* ✅ แสดงจำนวนโดรนทั้งหมดและวงที่สร้าง */}
         <DroneCounter marksCount={marks.length} />
+
+        {/* ✅ Bottom-Center HUD */}
+        <BottomHUD
+          drones={drones}
+          selectedCamId={selectedCamId}
+          filter={filter}
+          onFilterChange={setFilter}
+          onZoomToFit={handleZoomToFit}
+          isLoading={isLoading}
+        />
 
         {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
         {isMarking && (

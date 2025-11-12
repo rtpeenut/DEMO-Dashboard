@@ -28,15 +28,104 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
   const [droneData, setDroneData] = useState(drone);
 
   useEffect(() => {
+    // ✅ อัปเดต droneData เมื่อ drone prop เปลี่ยน
+    setDroneData(drone);
+  }, [drone]);
+
+  useEffect(() => {
     // ✅ เลือกแหล่งข้อมูลจาก env: NEXT_PUBLIC_DATA_SOURCE = 'api' | 'ws'
     const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
     const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
       if (!Array.isArray(list)) return; // กันชนิดผิดพลาดจาก WS
-      const updated = list.find((d: any) => d.id === drone.id);
-      if (updated) setDroneData(updated);
+      
+      // ✅ หา drone โดยใช้ id, callsign, หรือ obj_id (รองรับทั้งสองแบบ)
+      const updated = list.find((d: any) => {
+        const dId = d.id || (d as any).obj_id;
+        const dCallsign = d.callsign || d.id || (d as any).obj_id;
+        const droneId = drone.id || (drone as any).obj_id;
+        const droneCallsign = drone.callsign || drone.id || (drone as any).obj_id;
+        
+        const match = dId === droneId || 
+               dId === droneCallsign ||
+               dCallsign === droneId ||
+               dCallsign === droneCallsign ||
+               d.id === drone.id ||
+               d.callsign === drone.callsign;
+        
+        return match;
+      });
+      
+      if (updated) {
+        // ✅ ตรวจสอบว่ามีการเปลี่ยนแปลงตำแหน่งหรือไม่
+        const positionChanged = !droneData.position || 
+          !updated.position ||
+          droneData.position[0] !== updated.position[0] ||
+          droneData.position[1] !== updated.position[1];
+        
+        // ✅ Debug: Log when drone is found and updated
+        if (positionChanged) {
+          console.log(`🔄 Updating drone ${drone.id}:`, {
+            oldPosition: droneData.position,
+            newPosition: updated.position,
+            lat: updated.position?.[0],
+            lng: updated.position?.[1],
+            altitudeFt: updated.altitudeFt,
+            speedKt: updated.speedKt,
+            alt: updated.alt,
+          });
+        }
+        
+        // ✅ อัปเดตทุก field รวมถึง position และ altitudeFt โดยใช้ข้อมูลใหม่ทั้งหมด
+        setDroneData((prev) => {
+          // ✅ ตรวจสอบว่า position และ altitudeFt มีค่าถูกต้อง
+          const newPosition = updated.position && Array.isArray(updated.position) && updated.position.length === 2
+            ? [updated.position[0], updated.position[1]] as [number, number] // ✅ สร้าง array ใหม่เพื่อให้ React detect การเปลี่ยนแปลง
+            : prev.position;
+          const newAltitudeFt = typeof updated.altitudeFt === 'number' && !isNaN(updated.altitudeFt)
+            ? updated.altitudeFt
+            : prev.altitudeFt;
+          const newSpeedKt = typeof updated.speedKt === 'number' && !isNaN(updated.speedKt)
+            ? updated.speedKt
+            : prev.speedKt;
+          const newAlt = typeof updated.alt === 'number' && !isNaN(updated.alt)
+            ? updated.alt
+            : prev.alt;
+          
+          // ✅ ตรวจสอบว่ามีการเปลี่ยนแปลงจริงหรือไม่
+          const hasChanges = 
+            (newPosition && prev.position && (
+              newPosition[0] !== prev.position[0] || 
+              newPosition[1] !== prev.position[1]
+            )) ||
+            newAltitudeFt !== prev.altitudeFt ||
+            newSpeedKt !== prev.speedKt ||
+            newAlt !== prev.alt;
+          
+          if (hasChanges) {
+            return {
+              ...prev,
+              ...updated,
+              position: newPosition,
+              altitudeFt: newAltitudeFt,
+              speedKt: newSpeedKt,
+              alt: newAlt,
+              lastUpdate: updated.lastUpdate || prev.lastUpdate,
+            };
+          }
+          
+          // ✅ ถ้าไม่มี changes แต่ lastUpdate เปลี่ยน ก็อัปเดต lastUpdate
+          return {
+            ...prev,
+            lastUpdate: updated.lastUpdate || prev.lastUpdate,
+          };
+        });
+      } else {
+        // ✅ Debug: Log when drone is not found
+        console.warn(`⚠️ Drone ${drone.id} not found in list. Available IDs:`, list.map((d: any) => d.id || (d as any).obj_id));
+      }
     });
     return stop; // cleanup
-  }, [drone.id]);
+  }, [drone.id, drone.callsign]);
 
   // Calculate MGRS from position
   const mgrsCoordinate = useMemo(() => {
@@ -140,15 +229,19 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
           <div className="bg-zinc-800 rounded-xl border border-zinc-700 py-2">
             <div className="text-xs text-zinc-400">LATITUDE</div>
             <div className="text-amber-400 font-bold">
-              {/* ✅ แสดงทศนิยม 3 ตำแหน่ง และอัปเดตแบบเรียลไทม์ */}
-              {droneData.position ? droneData.position[0].toFixed(3) : "—"}
+              {/* ✅ แสดงทศนิยม 6 ตำแหน่ง เพื่อให้เห็นการเปลี่ยนแปลงชัดเจนขึ้น */}
+              {droneData.position && droneData.position[0] !== undefined 
+                ? droneData.position[0].toFixed(6) 
+                : "—"}
             </div>
           </div>
           <div className="bg-zinc-800 rounded-xl border border-zinc-700 py-2">
             <div className="text-xs text-zinc-400">LONGITUDE</div>
             <div className="text-amber-400 font-bold">
-              {/* ✅ แสดงทศนิยม 3 ตำแหน่ง และอัปเดตแบบเรียลไทม์ */}
-              {droneData.position ? droneData.position[1].toFixed(3) : "—"}
+              {/* ✅ แสดงทศนิยม 6 ตำแหน่ง เพื่อให้เห็นการเปลี่ยนแปลงชัดเจนขึ้น */}
+              {droneData.position && droneData.position[1] !== undefined 
+                ? droneData.position[1].toFixed(6) 
+                : "—"}
             </div>
           </div>
         </div>

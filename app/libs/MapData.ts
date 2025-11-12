@@ -82,19 +82,49 @@
 //   await new Promise((r) => setTimeout(r, 200));
 //   return drones;
 // }
+// ✅ Camera Info Interface
+export interface CameraInfo {
+  name: string;
+  sort: string;
+  location: string;
+  institute: string;
+}
+
+// ✅ Frame Interface
+export interface Frame {
+  fram_id: string;
+  cam_id: string;
+  token_id: {
+    camera_info: CameraInfo;
+  };
+  timestamp: string;
+  image_info: {
+    width: number;
+    height: number;
+  };
+  objects: Array<{
+    obj_id: string;
+    type: string | null;
+    lat: number;
+    lng: number;
+    alt: number;
+    speed_kt: number;
+  }>;
+}
+
 export interface Drone {
   id: string;
   callsign: string;
   type: string;
-  status: "FRIEND" | "HOSTILE";
+  status: "FRIEND" | "HOSTILE" | "UNKNOWN";
   speedKt: number;
   altitudeFt: number;
   headingDeg: number;
   position: [number, number];
   lastUpdate?: string;
   imageUrl?: string;
-  idCamera?: string; // ✅ รอรับจาก API
-  size?: string; // ✅ รอรับจาก API
+  camId?: string; // ✅ cam_id จาก frame
+  alt?: number; // ✅ altitude ในหน่วยเมตร (สำหรับแสดงใน tooltip)
 }
 
 // ✅ Mark Interface
@@ -166,22 +196,54 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   const c = 2 * Math.atan2(Math.sqrt(s1 + s2), Math.sqrt(1 - (s1 + s2)));
   return R * c;
 }
-export function mapBackendDrone(raw: any): Drone {
+// ✅ Map object from frame to Drone
+export function mapBackendDrone(obj: any, camId?: string, timestamp?: string): Drone {
+  // ✅ Determine status from type
+  let status: "FRIEND" | "HOSTILE" | "UNKNOWN" = "UNKNOWN";
+  const objType = (obj.type || "").toLowerCase();
+  if (objType.includes("friend") || objType === "friendly") {
+    status = "FRIEND";
+  } else if (objType.includes("hostile") || objType === "enemy") {
+    status = "HOSTILE";
+  }
+
+  // ✅ Extract values with proper fallbacks
+  const lat = typeof obj.lat === 'number' ? obj.lat : (typeof obj.latitude === 'number' ? obj.latitude : 0);
+  const lng = typeof obj.lng === 'number' ? obj.lng : (typeof obj.longitude === 'number' ? obj.longitude : 0);
+  const alt = typeof obj.alt === 'number' ? obj.alt : (typeof obj.altitude_m === 'number' ? obj.altitude_m : 0);
+  const speedKt = typeof obj.speed_kt === 'number' ? obj.speed_kt : (obj.speed_mps ? obj.speed_mps * 1.94384 : 0);
+  
   return {
-    id: raw.drone_id || raw.id || "unknown",
-    callsign: raw.drone_id?.toUpperCase() || "UNNAMED",
-    type: "UAV",
-    status: "HOSTILE", // หรือจะปรับจาก raw.confidence ก็ได้
-    speedKt: raw.speed_mps ? raw.speed_mps * 1.94384 : 0, // m/s → knots
-    altitudeFt: raw.altitude_m ? raw.altitude_m * 3.28084 : 0, // m → feet
-    headingDeg: 0, // ถ้ามี heading ใน data ค่อยเพิ่ม
-    position: [raw.latitude, raw.longitude],
-    lastUpdate: raw.timestamp || new Date().toISOString(),
-    imageUrl: raw.image_path || undefined, // ใช้ undefined ถ้าไม่มีรูป
+    id: obj.obj_id || obj.drone_id || obj.id || "unknown",
+    callsign: (obj.obj_id || obj.drone_id || obj.id || "UNNAMED")?.toUpperCase(),
+    type: obj.type || "unknown",
+    status: status,
+    speedKt: speedKt,
+    altitudeFt: alt * 3.28084, // ✅ แปลงเมตรเป็นฟุต
+    alt: alt, // ✅ เก็บค่าเมตรไว้สำหรับ tooltip
+    headingDeg: 0,
+    position: [lat, lng] as [number, number], // ✅ ใช้ lat, lng โดยตรง
+    lastUpdate: timestamp || obj.timestamp || new Date().toISOString(),
+    imageUrl: obj.image_path || undefined,
+    camId: camId || obj.camId || obj.cam_id,
   };
 }
+
+// ✅ Store for frame data by cam_id
+const frameStore = new Map<string, Frame>();
+
+// ✅ Get frame by cam_id
+export function getFrameByCamId(camId: string): Frame | null {
+  return frameStore.get(camId) || null;
+}
+
+// ✅ Get all frames
+export function getAllFrames(): Frame[] {
+  return Array.from(frameStore.values());
+}
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
-  const ws = new WebSocket("ws://82.26.104.161:3000/ws");
+  const ws = new WebSocket("ws://localhost:3000/ws");
+  // const ws = new WebSocket("ws://82.26.104.161:3000/ws");
   // const ws = new WebSocket("ws://ace42530b32d.ngrok-free.app/ws");
 
 
@@ -223,40 +285,118 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
   }, 1_000);
 
   ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    if (data.type !== "drone") return;
-
-    const drone = mapBackendDrone(data);
-    const id = drone.id;
-
-    // ✅ อัปเดต lastUpdate ให้เป็นปัจจุบันเสมอเมื่อมีข้อความเข้า
-    drone.lastUpdate = new Date().toISOString();
-
-    // ✅ ตรวจจับการเคลื่อนที่: ถ้าเปลี่ยนตำแหน่งมากกว่าเกณฑ์ ให้รีเซ็ตสถานะ "นิ่ง"
-    const prev = tracking.get(id);
-    const prevPos = prev?.lastPos;
-    if (drone.position && prevPos) {
-      const moved = distanceMeters(prevPos, drone.position) > MOVE_EPS_METERS;
-      if (moved) {
-        // ขยับ: รีเซ็ตเวลาเริ่มนิ่ง และอัปเดตตำแหน่งล่าสุด
-        tracking.set(id, { lastPos: drone.position, stationarySince: undefined });
-      } else {
-        // ไม่ขยับ: ถ้ายังไม่ได้เริ่มนับ ให้นับตั้งแต่วินาทีนี้
-        tracking.set(id, {
-          lastPos: prevPos,
-          stationarySince: prev?.stationarySince ?? Date.now(),
-        });
+    try {
+      const data = JSON.parse(event.data);
+      
+      // ✅ Handle "hello" message from server (connection confirmation)
+      if (data.type === "hello" && data.ok) {
+        console.log("👋 Received hello from server");
+        return;
       }
-    } else {
-      // ครั้งแรกที่เห็นหรือไม่มีตำแหน่งก่อนหน้า: ตั้งตำแหน่งเริ่มต้นไว้ (ยังไม่ถือว่าเป็นการนิ่ง)
-      tracking.set(id, { lastPos: drone.position });
+      
+      // ✅ รองรับทั้งรูปแบบเก่า (type: "drone") และรูปแบบใหม่ (frame with objects array)
+      let objects: any[] = [];
+      
+      if (data.type === "drone") {
+        // รูปแบบเก่า: single drone object
+        objects = [data];
+      } else if (data.objects && Array.isArray(data.objects)) {
+        // รูปแบบใหม่: frame object with objects array (format from backend)
+        // Format: { fram_id, cam_id, token_id, timestamp, image_info, objects: [...] }
+        const frame: Frame = {
+          fram_id: data.fram_id,
+          cam_id: data.cam_id,
+          token_id: data.token_id,
+          timestamp: data.timestamp || new Date().toISOString(),
+          image_info: data.image_info,
+          objects: data.objects,
+        };
+        
+        // ✅ เก็บ frame ตาม cam_id
+        frameStore.set(frame.cam_id, frame);
+        
+        const frameTimestamp = frame.timestamp;
+        objects = frame.objects.map((obj: any) => ({
+          ...obj,
+          timestamp: frameTimestamp,
+          cam_id: frame.cam_id, // เพิ่ม cam_id ให้แต่ละ object
+        }));
+      } else {
+        // ไม่ใช่รูปแบบที่รองรับ
+        return;
+      }
+
+      // ✅ ประมวลผลแต่ละ object ใน frame
+      for (const obj of objects) {
+        const camId = obj.cam_id || data.cam_id;
+        const timestamp = obj.timestamp || data.timestamp;
+        const drone = mapBackendDrone(obj, camId, timestamp);
+        const id = drone.id;
+
+        // ✅ Validate position data
+        if (!drone.position || !Array.isArray(drone.position) || drone.position.length !== 2) {
+          console.warn(`⚠️ Invalid position for drone ${id}:`, drone.position);
+          continue;
+        }
+        
+        // ✅ Validate position values are numbers
+        if (typeof drone.position[0] !== 'number' || typeof drone.position[1] !== 'number' ||
+            isNaN(drone.position[0]) || isNaN(drone.position[1])) {
+          console.warn(`⚠️ Invalid position values for drone ${id}:`, drone.position);
+          continue;
+        }
+
+        // ✅ อัปเดต lastUpdate ให้เป็นปัจจุบันเสมอเมื่อมีข้อความเข้า
+        drone.lastUpdate = new Date().toISOString();
+
+        // ✅ ตรวจจับการเคลื่อนที่: ถ้าเปลี่ยนตำแหน่งมากกว่าเกณฑ์ ให้รีเซ็ตสถานะ "นิ่ง"
+        const prev = tracking.get(id);
+        const prevPos = prev?.lastPos;
+        if (drone.position && prevPos) {
+          const moved = distanceMeters(prevPos, drone.position) > MOVE_EPS_METERS;
+          if (moved) {
+            // ขยับ: รีเซ็ตเวลาเริ่มนิ่ง และอัปเดตตำแหน่งล่าสุด
+            tracking.set(id, { lastPos: drone.position, stationarySince: undefined });
+          } else {
+            // ไม่ขยับ: ถ้ายังไม่ได้เริ่มนับ ให้นับตั้งแต่วินาทีนี้
+            tracking.set(id, {
+              lastPos: drone.position, // ✅ อัปเดตตำแหน่งล่าสุดเสมอ (แม้จะไม่ขยับมาก)
+              stationarySince: prev?.stationarySince ?? Date.now(),
+            });
+          }
+        } else {
+          // ครั้งแรกที่เห็นหรือไม่มีตำแหน่งก่อนหน้า: ตั้งตำแหน่งเริ่มต้นไว้ (ยังไม่ถือว่าเป็นการนิ่ง)
+          tracking.set(id, { lastPos: drone.position });
+        }
+
+        // ✅ เก็บ Drone ล่าสุดไว้ใน map (อัปเดตเสมอแม้ตำแหน่งจะไม่เปลี่ยนมาก)
+        // ✅ ตรวจสอบว่ามีการเปลี่ยนแปลงตำแหน่งหรือไม่
+        const existingDrone = droneMap.get(id);
+        const positionChanged = !existingDrone || 
+          !existingDrone.position || 
+          !drone.position ||
+          existingDrone.position[0] !== drone.position[0] ||
+          existingDrone.position[1] !== drone.position[1];
+        
+        if (positionChanged) {
+          console.log(`📍 Position updated for ${id}:`, {
+            old: existingDrone?.position,
+            new: drone.position,
+            lat: drone.position[0],
+            lng: drone.position[1],
+          });
+        }
+        
+        droneMap.set(id, drone);
+      }
+
+      // ✅ ส่งค่าออกไปให้ React ใช้ (รวมทุกโดรน) - อัปเดตเสมอแม้ตำแหน่งจะไม่เปลี่ยนมาก
+      // ✅ สร้าง array ใหม่เพื่อให้ React detect การเปลี่ยนแปลง
+      const updatedDrones = Array.from(droneMap.values());
+      onUpdate(updatedDrones);
+    } catch (error) {
+      console.error("❌ Error processing WebSocket message:", error);
     }
-
-    // ✅ เก็บ Drone ล่าสุดไว้ใน map
-    droneMap.set(id, drone);
-
-    // ✅ ส่งค่าออกไปให้ React ใช้ (รวมทุกโดรน)
-    onUpdate(Array.from(droneMap.values()));
   };
 
   // ✅ คืนฟังก์ชัน stop: ปิด WS และล้าง interval (สำคัญมาก)

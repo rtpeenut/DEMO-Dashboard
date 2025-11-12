@@ -106,14 +106,15 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
                 onSelectRef.current(drone);
               }
               
-              // Also show popup
+              // Also show popup with obj_id, speed_kt, alt
+              const altMeters = drone.alt || (drone.altitudeFt / 3.28084);
               new mapboxgl.Popup()
                 .setLngLat(e.lngLat)
                 .setHTML(`
-                  <div style="font-size: 12px; font-family: system-ui;">
-                    <strong>${drone.callsign}</strong><br/>
-                    ${drone.altitudeFt.toFixed(0)} ft<br/>
-                    ${drone.speedKt.toFixed(1)} kt
+                  <div style="font-size: 12px; font-family: system-ui; padding: 4px;">
+                    <strong>${drone.id}</strong><br/>
+                    Speed: ${drone.speedKt.toFixed(1)} kt<br/>
+                    Alt: ${altMeters.toFixed(0)} m
                   </div>
                 `)
                 .addTo(map);
@@ -122,12 +123,43 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
             }
           });
 
-          // Change cursor on hover
-          map.on('mouseenter', LAYER_ID, () => {
+          // Change cursor on hover and show tooltip
+          let hoverPopup: mapboxgl.Popup | null = null;
+          
+          map.on('mouseenter', LAYER_ID, (e) => {
             map.getCanvas().style.cursor = 'pointer';
+            
+            if (!e.features || e.features.length === 0) return;
+            const feature = e.features[0];
+            const props = feature.properties;
+            
+            if (props) {
+              const objId = props.obj_id || props.id;
+              const speedKt = props.speed_kt || props.speed || 0;
+              const alt = props.alt || (props.altitude / 3.28084) || 0;
+              
+              hoverPopup = new mapboxgl.Popup({
+                closeButton: false,
+                closeOnClick: false,
+                className: 'drone-tooltip'
+              })
+                .setLngLat(e.lngLat)
+                .setHTML(`
+                  <div style="font-size: 11px; font-family: system-ui; padding: 2px 4px;">
+                    <strong>${objId}</strong><br/>
+                    ${speedKt.toFixed(1)} kt | ${alt.toFixed(0)} m
+                  </div>
+                `)
+                .addTo(map);
+            }
           });
+          
           map.on('mouseleave', LAYER_ID, () => {
             map.getCanvas().style.cursor = '';
+            if (hoverPopup) {
+              hoverPopup.remove();
+              hoverPopup = null;
+            }
           });
         }
 
@@ -200,9 +232,12 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
           },
           properties: {
             id: drone.id,
+            obj_id: drone.id, // ✅ สำหรับ tooltip
             callsign: drone.callsign,
             altitude: drone.altitudeFt,
+            alt: drone.alt || drone.altitudeFt / 3.28084, // ✅ เก็บค่าเมตร
             speed: drone.speedKt,
+            speed_kt: drone.speedKt, // ✅ สำหรับ tooltip
             color: color
           }
         };

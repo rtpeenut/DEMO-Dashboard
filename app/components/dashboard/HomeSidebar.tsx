@@ -1,21 +1,51 @@
 ﻿'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Drone, Home as HomeIcon } from 'lucide-react';
-import type { Drone as DroneType } from '@/app/libs/MapData';
-import { subscribeDrones } from '@/app/libs/MapData';
+import { Drone, Home as HomeIcon, Camera } from 'lucide-react';
+import type { Drone as DroneType, Frame } from '@/app/libs/MapData';
+import { subscribeDrones, getFrameByCamId, getAllFrames } from '@/app/libs/MapData';
 
 type DroneStatus = 'FRIEND' | 'HOSTILE' | 'UNKNOWN';
 
 interface HomeSidebarProps {
   onClose?: () => void;
   onSelectDrone?: (drone: DroneType) => void;
+  selectedCamId?: string;
+  filter?: DroneStatus | 'ALL';
+  onFilterChange?: (filter: DroneStatus | 'ALL') => void;
 }
 
-export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps) {
+export default function HomeSidebar({ 
+  onClose, 
+  onSelectDrone,
+  selectedCamId,
+  filter: externalFilter,
+  onFilterChange,
+}: HomeSidebarProps) {
   const [drones, setDrones] = useState<DroneType[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<DroneStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<DroneStatus | 'ALL'>(externalFilter || 'ALL');
+  const [frame, setFrame] = useState<Frame | null>(null);
+
+  // ✅ Sync filter with external (from HUD)
+  useEffect(() => {
+    if (externalFilter !== undefined) {
+      setStatusFilter(externalFilter);
+    }
+  }, [externalFilter]);
+
+  // ✅ Update frame when cam_id changes
+  useEffect(() => {
+    if (selectedCamId) {
+      const f = getFrameByCamId(selectedCamId);
+      setFrame(f);
+    } else {
+      const frames = getAllFrames();
+      if (frames.length > 0) {
+        setFrame(frames[0]);
+      }
+    }
+  }, [selectedCamId]);
 
   const ref = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
@@ -71,6 +101,21 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
           </button>
         )}
       </div>
+      {/* ✅ Camera Info */}
+      {frame?.token_id?.camera_info && (
+        <div className="mb-3 rounded-xl bg-zinc-800/80 border border-zinc-700 px-4 py-3">
+          <div className="flex items-center gap-2 text-amber-400 mb-2">
+            <Camera size={16} />
+            <span className="font-semibold text-sm">ข้อมูลกล้อง</span>
+          </div>
+          <div className="text-xs text-zinc-300 space-y-1">
+            <div><span className="text-zinc-400">ชื่อ:</span> {frame.token_id.camera_info.name}</div>
+            <div><span className="text-zinc-400">สถานที่:</span> {frame.token_id.camera_info.location}</div>
+            <div><span className="text-zinc-400">สถาบัน:</span> {frame.token_id.camera_info.institute}</div>
+          </div>
+        </div>
+      )}
+
       <div className="mb-3 rounded-xl bg-zinc-800 px-4 py-2 text-zinc-300 font-sans">
         FLIGHT
       </div>
@@ -88,7 +133,12 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
       <div className="space-y-3 overflow-y-auto pr-1 flex-1">
         {Array.isArray(drones) &&
           drones
-            .filter((d) => statusFilter === 'ALL' || d.status === statusFilter)
+            .filter((d) => {
+              // Filter by cam_id if selected
+              if (selectedCamId && d.camId !== selectedCamId) return false;
+              // Filter by status
+              return statusFilter === 'ALL' || d.status === statusFilter;
+            })
             .map((d) => (
               <button
                 key={d.id}
@@ -105,6 +155,11 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
                       <div>
                         <div className="text-amber-400 font-extrabold">{d.callsign}</div>
                         <div className="text-sm text-zinc-300">&bull; {d.type}</div>
+                        {d.alt !== undefined && (
+                          <div className="text-xs text-zinc-500 mt-1">
+                            Alt: {d.alt.toFixed(0)} m | Speed: {d.speedKt.toFixed(1)} kt
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-zinc-400">STATUS</div>
@@ -165,7 +220,10 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
               <button
                 key={status}
                 type="button"
-                onClick={() => setStatusFilter(status)}
+                onClick={() => {
+                  setStatusFilter(status);
+                  onFilterChange?.(status);
+                }}
                 aria-pressed={active}
                 className={`flex items-center gap-2 rounded-lg border px-2 py-1 transition focus:outline-none whitespace-nowrap ${active
                     ? 'border-amber-500 bg-amber-500 text-zinc-900 shadow-lg'
