@@ -57,7 +57,6 @@ export async function DELETE(
     const res = await fetch(url, {
       method: "DELETE",
       headers: {
-        "Content-Type": "application/json",
         Connection: "close",
       },
       cache: "no-store",
