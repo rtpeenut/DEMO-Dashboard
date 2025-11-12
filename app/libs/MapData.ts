@@ -93,6 +93,8 @@ export interface Drone {
   position: [number, number];
   lastUpdate?: string;
   imageUrl?: string;
+  idCamera?: string; // ✅ รอรับจาก API
+  size?: string; // ✅ รอรับจาก API
 }
 
 // ✅ Mark Interface

@@ -348,7 +348,7 @@ const MapComponent = ({
 
 
 
-  // คลิกเพื่อปัก mark หรือปักหมุดพิกัด
+  // คลิกเพื่อปัก mark, point หรือปักหมุดพิกัด
   useEffect(() => {
     if (!map.current) return;
     const m = map.current;
@@ -445,8 +445,6 @@ const MapComponent = ({
       onFinishMark?.();
     }
   };
-
-
 
   // อัพเดทตำแหน่ง popup เมื่อแผนที่เลื่อนหรือ zoom
   useEffect(() => {
@@ -580,7 +578,6 @@ const MapComponent = ({
       <MapboxZoneWatcher 
         marks={marks} 
         drones={drones} 
-        isFollowing={!!followDrone}
         onDroneInZone={handleDroneInZone}
       />
       <MapboxDroneMarkers map={map.current} onSelect={onSelectDrone} />

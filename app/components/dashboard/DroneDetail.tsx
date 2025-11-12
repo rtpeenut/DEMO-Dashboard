@@ -16,6 +16,8 @@ interface DroneDetailProps {
     mgrs?: string;
     position?: [number, number];
     imageUrl?: string;
+    idCamera?: string; // ✅ รอรับจาก API
+    size?: string; // ✅ รอรับจาก API
   };
   onClose?: () => void;
   onFollow?: (drone: any, isFollowing: boolean) => void;
@@ -93,9 +95,23 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
       <div className="px-4 py-3">
         <div className="text-xs text-zinc-400 font-semibold mb-1">INFORMATION</div>
         <div className="bg-zinc-800 rounded-xl border border-zinc-700 p-3 mb-3">
-          <div className="text-[13px] text-zinc-400">ID:</div>
-          <div className="font-mono text-sm text-zinc-200">{droneData.id}</div>
-          <div className="text-[13px] text-zinc-400 mt-2">MGRS:</div>
+          {/* ID Row - 3 columns */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <div className="text-[13px] text-zinc-400">ID:</div>
+              <div className="font-mono text-sm text-zinc-200">{droneData.id}</div>
+            </div>
+            <div>
+              <div className="text-[13px] text-zinc-400">IDCamera:</div>
+              <div className="font-mono text-sm text-zinc-200">{droneData.idCamera || "—"}</div>
+            </div>
+            <div>
+              <div className="text-[13px] text-zinc-400">Size:</div>
+              <div className="font-mono text-sm text-zinc-200">{droneData.size || "—"}</div>
+            </div>
+          </div>
+          
+          <div className="text-[13px] text-zinc-400 mt-3">MGRS:</div>
           <div className="bg-zinc-900 rounded-md px-2 py-1 text-xs text-zinc-300 font-mono">
             {mgrsCoordinate}
           </div>

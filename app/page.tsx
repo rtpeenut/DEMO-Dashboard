@@ -10,6 +10,7 @@ const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
 const MarkSidebar = dynamic(() => import("@/app/components/dashboard/MarkSidebar"), { ssr: false });
+const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectSidebar"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
@@ -36,6 +37,7 @@ export default function HomePage() {
     pos: [number, number];
     radius: number;
   };
+
   
   // state
   const [openHome, setOpenHome] = useState(false);
@@ -46,6 +48,7 @@ export default function HomePage() {
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
   const [showMark, setShowMark] = useState(false);
+  const [showProtect, setShowProtect] = useState(false);
   const [marks, setMarks] = useState<Mark[]>([]);
   const [isMarking, setIsMarking] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
@@ -111,6 +114,7 @@ export default function HomePage() {
   };
 
 
+
   useEffect(() => {
     // ถ้ามีการ follow อยู่ แต่ไปดู detail ของ drone อื่น
     if (followDrone?.id && selectedDrone?.id && followDrone.id !== selectedDrone.id) {
@@ -124,6 +128,7 @@ export default function HomePage() {
       setOpenData(false);
       setOpenNotif(false);
       setShowMark(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openHome]);
@@ -132,6 +137,7 @@ export default function HomePage() {
       setOpenHome(false);
       setOpenNotif(false);
       setShowMark(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openData]);
@@ -140,6 +146,7 @@ export default function HomePage() {
       setOpenHome(false);
       setOpenData(false);
       setShowMark(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openNotif]);
@@ -148,15 +155,26 @@ export default function HomePage() {
       setOpenHome(false);
       setOpenData(false);
       setOpenNotif(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [showMark]);
+  useEffect(() => {
+    if (showProtect) {
+      setOpenHome(false);
+      setOpenData(false);
+      setOpenNotif(false);
+      setShowMark(false);
+      setOpenSettings(false);
+    }
+  }, [showProtect]);
   useEffect(() => {
     if (openSettings) {
       setOpenHome(false);
       setOpenData(false);
       setOpenNotif(false);
       setShowMark(false);
+      setShowProtect(false);
     }
   }, [openSettings]);
 
@@ -239,6 +257,7 @@ export default function HomePage() {
           }}
           onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
           onMarkClick={() => setShowMark(!showMark)}
+          onProtectClick={() => setShowProtect(!showProtect)}
           onSettingsClick={() => setOpenSettings((v) => !v)}
           on3DToggle={() => {
             if ((window as any).mapbox3DToggle) {
@@ -271,6 +290,15 @@ export default function HomePage() {
           onDeleteMark={handleDeleteMark}
           onAddMark={() => setIsMarking(true)}
           onClose={() => setShowMark(false)}
+        />
+      )}
+
+      {showProtect && (
+        <ProtectSidebar
+          zones={marks}
+          onAddZone={() => setIsMarking(true)}
+          onDeleteZone={handleDeleteMark}
+          onClose={() => setShowProtect(false)}
         />
       )}
     </main>

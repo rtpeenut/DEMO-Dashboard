@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Home, Layers, Camera, Bell, Settings, User, Plus, Minus, Joystick , MapPin, Mountain
+  Home, Layers, Camera, Bell, Settings, User, Plus, Minus, Joystick , MapPin, Mountain, Shield
 } from "lucide-react";
 
 function ToolbarButton({
@@ -30,6 +30,7 @@ export default function RightToolbar({
   onHomeClick,
   onDataClick,
   onMarkClick,
+  onProtectClick,
   onNotifClick, // ✅ เพิ่มปุ่มเปิด Sidebar Notification
   onZoomIn,
   onZoomOut,
@@ -38,6 +39,7 @@ export default function RightToolbar({
 }: { onHomeClick?: () => void
       onDataClick?: () => void
       onMarkClick?: () => void
+      onProtectClick?: () => void
       onNotifClick?: () => void
       onSettingsClick?: () => void
       onZoomIn?: () => void
@@ -115,6 +117,7 @@ export default function RightToolbar({
           {/* ✅ เมื่อกด Bell ให้เปิด/ปิด Sidebar Notification */}
           <ToolbarButton icon={Bell}   label="Alerts" onClick={onNotifClick} />
           <ToolbarButton icon={MapPin}   label="Pin" onClick={onMarkClick}/>
+          <ToolbarButton icon={Shield}   label="Protection" onClick={onProtectClick}/>
           <ToolbarDivider />
           <ToolbarButton icon={Mountain} label="3D Terrain" onClick={on3DToggle} />
           <ToolbarDivider />
