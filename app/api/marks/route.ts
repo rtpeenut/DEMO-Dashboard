@@ -5,7 +5,7 @@ import { NextResponse } from "next/server";
 // - ถ้าไม่ตั้ง จะใช้ fallback เป็น in-memory storage
 
 const getBackendUrl = () => {
-  return process.env.MARK_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  return process.env.MARK_API_URL || process.env.NEXT_PUBLIC_BACKEND_URL || "http://82.26.104.161:3000";
 };
 
 // ✅ GET /api/marks - Fetch all marks
