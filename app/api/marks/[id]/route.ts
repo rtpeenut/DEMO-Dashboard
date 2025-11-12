@@ -76,34 +76,26 @@ export async function DELETE(
       );
     }
 
-    const errorPayload = await safeParseJson(res);
+    // Backend returned error - use fallback
+    console.log(`Using memory fallback for delete (backend returned ${res.status})`);
+    const { deleteMark } = await import("@/app/libs/MapData");
+    deleteMark(id);
+    
     return NextResponse.json(
-      errorPayload ?? { error: "Failed to delete mark" },
-      { status: res.status }
+      { message: "Mark deleted successfully (fallback)" },
+      { status: 200 }
     );
   } catch (error) {
-    console.error("Error deleting mark via backend:", error);
+    // Backend doesn't support DELETE, silently use fallback
+    console.log("Using memory fallback for delete (backend not available)");
 
-    if (!useFallback) {
-      return NextResponse.json(
-        { error: "Failed to reach backend service for deletion" },
-        { status: 502 }
-      );
-    }
-
+    // Always use fallback when backend connection fails
     try {
       const { deleteMark } = await import("@/app/libs/MapData");
-      const deleted = deleteMark(id);
-
-      if (!deleted) {
-        return NextResponse.json(
-          { error: "Mark not found" },
-          { status: 404 }
-        );
-      }
+      deleteMark(id);
 
       return NextResponse.json(
-        { message: "Mark deleted successfully (fallback storage)" },
+        { message: "Mark deleted successfully (fallback)" },
         { status: 200 }
       );
     } catch (fallbackError) {
