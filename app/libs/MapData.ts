@@ -94,6 +94,63 @@ export interface Drone {
   lastUpdate?: string;
   imageUrl?: string;
 }
+
+// ✅ Mark Interface
+export interface Mark {
+  id: string;
+  name: string;
+  color: string;
+  pos: [number, number]; // [lat, lng]
+  radius: number;        // meters
+  createdAt: string;
+}
+
+// ✅ In-memory storage for marks
+let marks: Mark[] = [];
+
+// ✅ Generate mark ID: MARK-${timestamp}-${random}
+function generateMarkId(): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 9);
+  return `MARK-${timestamp}-${random}`;
+}
+
+// ✅ Get all marks
+export function getMarks(): Mark[] {
+  return [...marks];
+}
+
+// ✅ Add a new mark (auto-generate id and createdAt)
+export function addMark(mark: Omit<Mark, 'id' | 'createdAt'>): Mark {
+  const newMark: Mark = {
+    ...mark,
+    id: generateMarkId(),
+    createdAt: new Date().toISOString(),
+  };
+  marks.push(newMark);
+  return newMark;
+}
+
+// ✅ Delete a mark by id
+export function deleteMark(id: string): boolean {
+  const index = marks.findIndex(m => m.id === id);
+  if (index === -1) return false;
+  marks.splice(index, 1);
+  return true;
+}
+
+// ✅ Update a mark (optional)
+export function updateMark(id: string, updates: Partial<Omit<Mark, 'id' | 'createdAt'>>): Mark | null {
+  const index = marks.findIndex(m => m.id === id);
+  if (index === -1) return null;
+  marks[index] = { ...marks[index], ...updates };
+  return marks[index];
+}
+
+// ✅ Clear all marks (optional)
+export function clearMarks(): void {
+  marks = [];
+}
 // ✅ ฟังก์ชันคำนวณระยะห่างแบบ Haversine (เมตร) เพื่อเช็คว่า "ขยับ" หรือไม่
 function distanceMeters(a: [number, number], b: [number, number]): number {
   const toRad = (v: number) => (v * Math.PI) / 180;

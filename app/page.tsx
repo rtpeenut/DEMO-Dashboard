@@ -27,6 +27,15 @@ export default function HomePage() {
     position?: [number, number];
     imageUrl?: string;
   };
+  
+  type Mark = {
+    id: string;
+    name: string;
+    color: string;
+    pos: [number, number];
+    radius: number;
+  };
+  
   // state
   const [openHome, setOpenHome] = useState(false);
   const [openData, setOpenData] = useState(false);
@@ -36,11 +45,69 @@ export default function HomePage() {
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
   const [showMark, setShowMark] = useState(false);
-  const [marks, setMarks] = useState<
-  { id: string; name: string; color: string; pos: [number, number]; radius: number }[]
->([]);
+  const [marks, setMarks] = useState<Mark[]>([]);
   const [isMarking, setIsMarking] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
+
+  // ✅ Load marks from API on initial render
+  useEffect(() => {
+    const loadMarks = async () => {
+      try {
+        const response = await fetch("/api/marks", { cache: "no-store" });
+        if (!response.ok) throw new Error("Failed to load marks");
+        const data = await response.json();
+        // Map API response to component state format (exclude createdAt if not needed in UI)
+        setMarks(data.map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          color: m.color,
+          pos: m.pos,
+          radius: m.radius,
+        })));
+      } catch (error) {
+        console.error("Error loading marks:", error);
+      }
+    };
+    loadMarks();
+  }, []);
+
+  // ✅ Handle adding a mark via API
+  const handleAddMark = async (mark: { name: string; color: string; pos: [number, number]; radius: number }) => {
+    try {
+      const response = await fetch("/api/marks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(mark),
+      });
+      if (!response.ok) throw new Error("Failed to create mark");
+      const newMark = await response.json();
+      // Update state with the new mark (exclude createdAt from state)
+      setMarks((prev: Mark[]) => [...prev, {
+        id: newMark.id,
+        name: newMark.name,
+        color: newMark.color,
+        pos: newMark.pos,
+        radius: newMark.radius,
+      }]);
+    } catch (error) {
+      console.error("Error creating mark:", error);
+      throw error; // Re-throw so MapboxComponent can handle it
+    }
+  };
+
+  // ✅ Handle deleting a mark via API
+  const handleDeleteMark = async (id: string) => {
+    try {
+      const response = await fetch(`/api/marks/${id}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) throw new Error("Failed to delete mark");
+      // Update state after successful deletion
+      setMarks((prev: Mark[]) => prev.filter((m: Mark) => m.id !== id));
+    } catch (error) {
+      console.error("Error deleting mark:", error);
+    }
+  };
 
 
   useEffect(() => {
@@ -130,6 +197,7 @@ export default function HomePage() {
           followDrone={followDrone}
           marks={marks}
           setMarks={setMarks}
+          onAddMark={handleAddMark}
           isMarking={isMarking}
           onFinishMark={() => setIsMarking(false)}
           notifications={notifications}
@@ -196,7 +264,7 @@ export default function HomePage() {
       {showMark && (
         <MarkSidebar
           marks={marks}
-          onDeleteMark={(id) => setMarks((prev) => prev.filter((m) => m.id !== id))}
+          onDeleteMark={handleDeleteMark}
           onAddMark={() => setIsMarking(true)}
           onClose={() => setShowMark(false)}
         />
