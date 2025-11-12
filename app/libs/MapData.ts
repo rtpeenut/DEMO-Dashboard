@@ -188,8 +188,8 @@ export function mapBackendDrone(raw: any): Drone {
     position: [obj.lat || raw.latitude, obj.lng || raw.longitude],
     lastUpdate: raw.timestamp || new Date().toISOString(),
     imageUrl: raw.image_path || undefined,
-    frameId: raw.frame_id,
-    camId: raw.cam_id,
+    frameId: raw.frame_id|| "id1",
+    camId: raw.cam_id || "cam1", 
     tokenId: raw.token_id,
     cameraInfo: raw.camera_info ? {
       name: raw.camera_info.name,
@@ -201,7 +201,7 @@ export function mapBackendDrone(raw: any): Drone {
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
   const ws = new WebSocket("ws://82.26.104.161:3000/ws");
-  // const ws = new WebSocket("ws://ace42530b32d.ngrok-free.app/ws");
+  // const ws = new WebSocket("ws://handwoven-audra-nonsusceptible.ngrok-free.dev/ws");
 
 
   const droneMap = new Map<string, Drone>();

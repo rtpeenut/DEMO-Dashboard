@@ -83,51 +83,58 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
       {!error && drones.length === 0 && (
         <div className="m-2 text-sm text-zinc-400">Loading drones...</div>
       )}
-
+  
       {/* ✅ รายการโดรน */}
+
       <div className="space-y-3 overflow-y-auto pr-1 flex-1">
         {Array.isArray(drones) &&
           drones
             .filter((d) => statusFilter === 'ALL' || d.status === statusFilter)
             .map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => onSelectDrone?.(d)}
-                className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 text-left transition hover:border-amber-400 hover:bg-zinc-800"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
-                    <Drone size={32} />
+              <div key={d.id} className="relative p-2">
+                {/* ✅ กรอบครอบด้านนอกตามธีมแดชบอร์ด */}
+                <div className="absolute inset-0 rounded-2xl border-[3px] border-zinc-600/50 pointer-events-none" />
+                
+                {/* ✅ แสดง Frame ID และ Cam ID ที่มุมบนซ้าย */}
+                {(d.frameId || d.camId) && (
+                  <div className="absolute -top-2 left-4 bg-zinc-800 px-3 py-0.5 rounded-full border border-zinc-600 text-[10px] font-semibold z-10">
+                    <span className="text-zinc-300">
+                      {d.frameId && <span>Frame: {d.frameId}</span>}
+                      {d.frameId && d.camId && <span className="mx-1.5 text-zinc-600">|</span>}
+                      {d.camId && <span>Cam: {d.camId}</span>}
+                    </span>
                   </div>
-                  <div className="flex flex-1 flex-col gap-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-amber-400 font-extrabold">{d.callsign}</div>
-                        <div className="text-sm text-zinc-300">&bull; {d.type}</div>
-                        {/* ✅ แสดง frame_id และ cam_id */}
-                        {(d.frameId || d.camId) && (
-                          <div className="text-xs text-zinc-500 mt-1">
-                            {d.frameId && <span>Frame: {d.frameId}</span>}
-                            {d.frameId && d.camId && <span> • </span>}
-                            {d.camId && <span>Cam: {d.camId}</span>}
+                )}
+                
+                <button
+                  type="button"
+                  onClick={() => onSelectDrone?.(d)}
+                  className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 text-left transition hover:border-amber-400 hover:bg-zinc-800"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
+                      <Drone size={32} />
+                    </div>
+                    <div className="flex flex-1 flex-col gap-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-amber-400 font-extrabold">{d.callsign}</div>
+                          <div className="text-sm text-zinc-300">&bull; {d.type}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-zinc-400">STATUS</div>
+                          <div
+                            className={`font-semibold ${d.status === 'HOSTILE'
+                                ? 'text-red-400'
+                                : d.status === 'FRIEND'
+                                  ? 'text-green-400'
+                                  : 'text-zinc-300'
+                              }`}
+                          >
+                            {d.status}
                           </div>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-zinc-400">STATUS</div>
-                        <div
-                          className={`font-semibold ${d.status === 'HOSTILE'
-                              ? 'text-red-400'
-                              : d.status === 'FRIEND'
-                                ? 'text-green-400'
-                                : 'text-zinc-300'
-                            }`}
-                        >
-                          {d.status}
                         </div>
                       </div>
-                    </div>
 
                     {/* SPEED / ALTITUDE / HEADING */}
                     <div className="flex justify-center gap-9 text-sm">
@@ -153,6 +160,7 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
                   </div>
                 </div>
               </button>
+              </div>
             ))}
       </div>
 
