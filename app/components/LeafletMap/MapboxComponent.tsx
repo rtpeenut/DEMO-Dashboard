@@ -10,7 +10,6 @@ import { Box, IconButton } from '@mui/material';
 import { Icon } from '@iconify/react';
 import { type DetectedObject } from '../types/detection';
 import DetectionPopup from './DetectionPopup';
-import MarkCirclePanel from '@/app/components/dashboardoffensive/MarkCirclePanel';
 import NotificationPanel from '../dashboardoffensive/NotificationPanel';
 import MapboxFollowDrone from './MapboxFollowDrone';
 import MapboxZoneWatcher from './MapboxZoneWatcher';
@@ -544,17 +543,7 @@ const MapComponent = ({
         </Box>
       )}
 
-      {/* MarkCirclePanel - กล่องตั้งค่า mark */}
-      {pendingMark && (
-        <MarkCirclePanel
-          position={pendingMark}
-          onConfirm={confirmMark}
-          onCancel={() => {
-            setPendingMark(null);
-            onFinishMark?.();
-          }}
-        />
-      )}
+
 
       {/* NotificationPanel - แสดงการแจ้งเตือน */}
       {notifications && setNotifications && (

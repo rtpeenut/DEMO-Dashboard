@@ -9,7 +9,6 @@ const RightToolbar = dynamic(() => import("@/app/components/dashboardoffensive/R
 const HomeSidebar = dynamic(() => import("@/app/components/dashboardoffensive/HomeSidebar"), { ssr: false });
 const DroneDetail = dynamic(() => import("@/app/components/dashboardoffensive/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboardoffensive/DataBar"), { ssr: false });
-const ProtectSidebar = dynamic(() => import("@/app/components/dashboardoffensive/ProtectSidebar"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboardoffensive/NotificationSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboardoffensive/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboardoffensive/DroneCounter"), { ssr: false });
@@ -28,104 +27,28 @@ export default function HomePage() {
     position?: [number, number];
     imageUrl?: string;
   };
-  
-  type Mark = {
-    id: string;
-    name: string;
-    color: string;
-    pos: [number, number];
-    radius: number;
-  };
 
-  
   // state
   const [openHome, setOpenHome] = useState(false);
   const [openData, setOpenData] = useState(false);
-  const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
-  const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
+  const [openNotif, setOpenNotif] = useState(false);
+  const [openSettings, setOpenSettings] = useState(false);
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
-  const [showProtect, setShowProtect] = useState(false);
-  const [marks, setMarks] = useState<Mark[]>([]);
-  const [isMarking, setIsMarking] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
-
-  // ✅ Load marks from API on initial render
-  useEffect(() => {
-    const loadMarks = async () => {
-      try {
-        const response = await fetch("/api/marks", { cache: "no-store" });
-        if (!response.ok) throw new Error("Failed to load marks");
-        const data = await response.json();
-        // Map API response to component state format (exclude createdAt if not needed in UI)
-        setMarks(data.map((m: any) => ({
-          id: m.id,
-          name: m.name,
-          color: m.color,
-          pos: m.pos,
-          radius: m.radius,
-        })));
-      } catch (error) {
-        console.error("Error loading marks:", error);
-      }
-    };
-    loadMarks();
-  }, []);
-
-  // ✅ Handle adding a mark via API
-  const handleAddMark = async (mark: { name: string; color: string; pos: [number, number]; radius: number }) => {
-    try {
-      const response = await fetch("/api/marks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mark),
-      });
-      if (!response.ok) throw new Error("Failed to create mark");
-      const newMark = await response.json();
-      // Update state with the new mark (exclude createdAt from state)
-      setMarks((prev: Mark[]) => [...prev, {
-        id: newMark.id,
-        name: newMark.name,
-        color: newMark.color,
-        pos: newMark.pos,
-        radius: newMark.radius,
-      }]);
-    } catch (error) {
-      console.error("Error creating mark:", error);
-      throw error; // Re-throw so MapboxComponent can handle it
-    }
-  };
-
-  // ✅ Handle deleting a mark via API
-  const handleDeleteMark = async (id: string) => {
-    try {
-      const response = await fetch(`/api/marks/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete mark");
-      // Update state after successful deletion
-      setMarks((prev: Mark[]) => prev.filter((m: Mark) => m.id !== id));
-    } catch (error) {
-      console.error("Error deleting mark:", error);
-    }
-  };
-
-
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   useEffect(() => {
-    // ถ้ามีการ follow อยู่ แต่ไปดู detail ของ drone อื่น
     if (followDrone?.id && selectedDrone?.id && followDrone.id !== selectedDrone.id) {
-      setFollowDrone(null); // ✅ ยกเลิกการ follow ตัวเก่าทันที
+      setFollowDrone(null);
     }
   }, [selectedDrone, followDrone]);
 
-  // ✅ ป้องกันแผงจาก RightToolbar ซ้อนกัน: เปิดอันหนึ่ง ปิดอีกอันอัตโนมัติ
+  // ป้องกันแผงซ้อนกัน
   useEffect(() => {
     if (openHome) {
       setOpenData(false);
       setOpenNotif(false);
-      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openHome]);
@@ -133,7 +56,6 @@ export default function HomePage() {
     if (openData) {
       setOpenHome(false);
       setOpenNotif(false);
-      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openData]);
@@ -141,35 +63,23 @@ export default function HomePage() {
     if (openNotif) {
       setOpenHome(false);
       setOpenData(false);
-      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openNotif]);
-  useEffect(() => {
-    if (showProtect) {
-      setOpenHome(false);
-      setOpenData(false);
-      setOpenNotif(false);
-      setOpenSettings(false);
-    }
-  }, [showProtect]);
   useEffect(() => {
     if (openSettings) {
       setOpenHome(false);
       setOpenData(false);
       setOpenNotif(false);
-      setShowProtect(false);
     }
   }, [openSettings]);
 
-  // ✅ เตรียมข้อมูลสำหรับ Mapbox (แทน Leaflet) จาก WebSocket/API
   const [mapboxObjects, setMapboxObjects] = useState<any[]>([]);
 
   useEffect(() => {
     const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
     const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
       if (!Array.isArray(list)) return;
-      // map Drone → DetectedObject
       const objs = list
         .filter((d: any) => Array.isArray(d.position) && d.position.length === 2)
         .map((d: any) => ({
@@ -190,7 +100,6 @@ export default function HomePage() {
   return (
     <main className="h-screen w-screen">
       <div className="relative h-full w-full">
-        {/* ✅ ใช้ Mapbox แทน Leaflet */}
         <MapboxComponent
           objects={mapboxObjects}
           imagePath={undefined}
@@ -198,11 +107,11 @@ export default function HomePage() {
           selectedDrone={selectedDrone}
           onSelectDrone={(drone: any) => setSelectedDrone(drone)}
           followDrone={followDrone}
-          marks={marks}
-          setMarks={setMarks}
-          onAddMark={handleAddMark}
-          isMarking={isMarking}
-          onFinishMark={() => setIsMarking(false)}
+          marks={[]}
+          setMarks={() => {}}
+          onAddMark={async () => {}}
+          isMarking={false}
+          onFinishMark={() => {}}
           notifications={notifications}
           setNotifications={setNotifications}
           mapStyle={mapStyle}
@@ -240,7 +149,6 @@ export default function HomePage() {
             setOpenData((v) => !v);
           }}
           onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
-          onProtectClick={() => setShowProtect(!showProtect)}
           onSettingsClick={() => setOpenSettings((v) => !v)}
           on3DToggle={() => {
             if ((window as any).mapbox3DToggle) {
@@ -249,21 +157,8 @@ export default function HomePage() {
           }}
         />
 
-        {/* ✅ แสดงจำนวนโดรนทั้งหมดและวงที่สร้าง */}
-        <DroneCounter marksCount={marks.length} />
+        <DroneCounter marksCount={0} />
 
-        {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
-        {isMarking && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1300]">
-            <div className="flex items-center gap-2 rounded-xl px-4 py-2 ui-card bg-amber-500/90 border border-amber-400">
-              <span className="text-amber-400 font-semibold text-sm">
-                กรุณาเลือกจุดที่จะสร้างรัศมีป้องกัน
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* ✅ กล่องรายละเอียดโดรน */}
         {selectedDrone && (
           <DroneDetail
             drone={selectedDrone}
@@ -273,18 +168,6 @@ export default function HomePage() {
           />
         )}
       </div>
-
-      {/* ✅ ใช้ Mapbox เต็มรูปแบบแล้ว - ไม่ต้องใช้ Leaflet อีกต่อไป */}
-
-      {showProtect && (
-        <ProtectSidebar
-          zones={marks}
-          onAddZone={() => setIsMarking(true)}
-          onDeleteZone={handleDeleteMark}
-          onClose={() => setShowProtect(false)}
-          isMarking={isMarking}
-        />
-      )}
     </main>
   );
 }
