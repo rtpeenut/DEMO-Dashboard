@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
-import { subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase";
+import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
 
 const MapboxComponent = dynamic(() => import("@/app/components/LeafletMap/MapboxComponent"), { ssr: false });
 const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolbar"), { ssr: false });

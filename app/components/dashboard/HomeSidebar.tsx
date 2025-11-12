@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Drone, Home as HomeIcon } from 'lucide-react';
-import type { Drone as DroneType } from '@/server/mockDatabase';
-import { subscribeDrones } from '@/server/mockDatabase';
+import type { Drone as DroneType } from '@/app/libs/MapData';
+import { subscribeDrones } from '@/app/libs/MapData';
 
 type DroneStatus = 'FRIEND' | 'HOSTILE' | 'UNKNOWN';
 

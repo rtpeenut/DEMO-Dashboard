@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import mapboxgl from "mapbox-gl";
-import { Drone, subscribeDrones, subscribeDronesApi } from "@/server/mockDatabase";
+import { Drone, subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
 
 interface MapboxDroneMarkersProps {
   map: mapboxgl.Map | null;

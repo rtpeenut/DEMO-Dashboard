@@ -18,7 +18,7 @@ import MapboxMarkZones from './MapboxMarkZones';
 import MapboxDroneMarkers from './MapboxDroneMarkers';
 import MapboxPinnedLocation from './MapboxPinnedLocation';
 import { latLngToMGRS, getColorForObjectId, getIconName } from '@/app/utils/mapUtils';
-import { subscribeDrones } from "@/server/mockDatabase";
+import { subscribeDrones } from "@/app/libs/MapData";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // โหลด Iconify สำหรับใช้ dynamic icons
