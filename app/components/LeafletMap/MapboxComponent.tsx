@@ -19,7 +19,7 @@ import MapboxDroneMarkers from './MapboxDroneMarkers';
 import MapboxPinnedLocation from './MapboxPinnedLocation';
 import Mapbox3DControls from './Mapbox3DControls';
 import { latLngToMGRS, getColorForObjectId, getIconName } from '@/app/utils/mapUtils';
-import { subscribeDrones } from "@/server/mockDatabase";
+import { subscribeDrones } from "@/app/libs/MapData";
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 // โหลด Iconify สำหรับใช้ dynamic icons
@@ -47,6 +47,7 @@ interface MapComponentProps {
   followDrone?: any;
   marks?: { id: string; name: string; color: string; pos: [number, number]; radius: number }[];
   setMarks?: React.Dispatch<React.SetStateAction<any[]>>;
+  onAddMark?: (mark: { name: string; color: string; pos: [number, number]; radius: number }) => Promise<void>;
   isMarking?: boolean;
   onFinishMark?: () => void;
   notifications?: any[];
@@ -63,6 +64,7 @@ const MapComponent = ({
   followDrone,
   marks,
   setMarks,
+  onAddMark,
   isMarking,
   onFinishMark,
   notifications,
@@ -412,18 +414,36 @@ const MapComponent = ({
   }, [isMarking, clickedPin]);
 
   // ยืนยัน mark จาก MarkCirclePanel
-  const confirmMark = (data: { name: string; radius: number; color: string }) => {
-    if (!pendingMark || !setMarks) return;
-    const newMark = {
-      id: crypto.randomUUID(),
+  const confirmMark = async (data: { name: string; radius: number; color: string }) => {
+    if (!pendingMark) return;
+    
+    const markData = {
       name: data.name || "Unnamed Mark",
       pos: pendingMark,
       radius: data.radius,
       color: data.color,
     };
-    setMarks((prev: any[]) => [...prev, newMark]);
-    setPendingMark(null);
-    onFinishMark?.();
+
+    // Use API callback if available, otherwise fallback to setMarks
+    if (onAddMark) {
+      try {
+        await onAddMark(markData);
+        setPendingMark(null);
+        onFinishMark?.();
+      } catch (error) {
+        console.error("Failed to create mark:", error);
+        // Optionally show error to user
+      }
+    } else if (setMarks) {
+      // Fallback to old behavior for backward compatibility
+      const newMark = {
+        id: crypto.randomUUID(),
+        ...markData,
+      };
+      setMarks((prev: any[]) => [...prev, newMark]);
+      setPendingMark(null);
+      onFinishMark?.();
+    }
   };
 
 

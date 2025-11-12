@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Drone } from "@/server/mockDatabase";
+import { Drone } from "@/app/libs/MapData";
 
 interface Mark {
   id: string;
