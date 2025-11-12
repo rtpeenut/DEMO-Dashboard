@@ -86,15 +86,22 @@ export interface Drone {
   id: string;
   callsign: string;
   type: string;
-  status: "FRIEND" | "HOSTILE";
+  status: "FRIEND" | "HOSTILE" | "UNKNOWN";
   speedKt: number;
   altitudeFt: number;
   headingDeg: number;
   position: [number, number];
   lastUpdate?: string;
   imageUrl?: string;
-  idCamera?: string; // ✅ รอรับจาก API
-  size?: string; // ✅ รอรับจาก API
+  frameId?: string; // ✅ frame_id จาก API
+  camId?: string; // ✅ cam_id จาก API
+  tokenId?: string; // ✅ token_id จาก API
+  cameraInfo?: {
+    name?: string;
+    sort?: string;
+    location?: string;
+    institute?: string;
+  };
 }
 
 // ✅ Mark Interface
@@ -167,17 +174,29 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   return R * c;
 }
 export function mapBackendDrone(raw: any): Drone {
+  // รองรับทั้ง format เก่าและใหม่
+  const obj = raw.objects?.[0] || raw; // ถ้ามี objects array ใช้ตัวแรก
+  
   return {
-    id: raw.drone_id || raw.id || "unknown",
-    callsign: raw.drone_id?.toUpperCase() || "UNNAMED",
-    type: "UAV",
+    id: obj.obj_id || raw.drone_id || raw.id || "unknown",
+    callsign: (obj.obj_id || raw.drone_id)?.toUpperCase() || "UNNAMED",
+    type: obj.type || "UAV",
     status: "HOSTILE", // หรือจะปรับจาก raw.confidence ก็ได้
-    speedKt: raw.speed_mps ? raw.speed_mps * 1.94384 : 0, // m/s → knots
-    altitudeFt: raw.altitude_m ? raw.altitude_m * 3.28084 : 0, // m → feet
-    headingDeg: 0, // ถ้ามี heading ใน data ค่อยเพิ่ม
-    position: [raw.latitude, raw.longitude],
+    speedKt: obj.speed_kt || (raw.speed_mps ? raw.speed_mps * 1.94384 : 0),
+    altitudeFt: obj.alt || (raw.altitude_m ? raw.altitude_m * 3.28084 : 0),
+    headingDeg: 0,
+    position: [obj.lat || raw.latitude, obj.lng || raw.longitude],
     lastUpdate: raw.timestamp || new Date().toISOString(),
-    imageUrl: raw.image_path || undefined, // ใช้ undefined ถ้าไม่มีรูป
+    imageUrl: raw.image_path || undefined,
+    frameId: raw.frame_id,
+    camId: raw.cam_id,
+    tokenId: raw.token_id,
+    cameraInfo: raw.camera_info ? {
+      name: raw.camera_info.name,
+      sort: raw.camera_info.sort,
+      location: raw.camera_info.location,
+      institute: raw.camera_info.institute,
+    } : undefined,
   };
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {

@@ -105,6 +105,14 @@ export default function HomeSidebar({ onClose, onSelectDrone }: HomeSidebarProps
                       <div>
                         <div className="text-amber-400 font-extrabold">{d.callsign}</div>
                         <div className="text-sm text-zinc-300">&bull; {d.type}</div>
+                        {/* ✅ แสดง frame_id และ cam_id */}
+                        {(d.frameId || d.camId) && (
+                          <div className="text-xs text-zinc-500 mt-1">
+                            {d.frameId && <span>Frame: {d.frameId}</span>}
+                            {d.frameId && d.camId && <span> • </span>}
+                            {d.camId && <span>Cam: {d.camId}</span>}
+                          </div>
+                        )}
                       </div>
                       <div className="text-right">
                         <div className="text-xs text-zinc-400">STATUS</div>
