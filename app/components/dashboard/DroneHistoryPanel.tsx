@@ -46,15 +46,14 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ✅ ดึงข้อมูลย้อนหลังจาก API
+  // ✅ ดึงข้อมูลย้อนหลังจาก API ผ่าน Next.js API proxy
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         setIsLoading(true);
         
-        // ✅ เรียก API detection path
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://82.26.104.180:3000';
-        const response = await fetch(`${apiUrl}/api/detection/${droneId}/path`, {
+        // ✅ เรียก Next.js API route แทนการเรียก external API โดยตรง (แก้ CORS)
+        const response = await fetch(`/api/detection/${droneId}/path`, {
           cache: 'no-store',
         });
         

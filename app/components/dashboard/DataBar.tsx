@@ -38,13 +38,13 @@ export default function DataBar({ onClose, onSelectDrone }: DataBarProps) {
     }
   }, []);
 
-  // ✅ ดึงรายการ drone IDs จาก database
+  // ✅ ดึงรายการ drone IDs จาก database ผ่าน Next.js API proxy
   useEffect(() => {
     const fetchDroneIds = async () => {
       try {
         setIsLoading(true);
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://82.26.104.180:3000';
-        const response = await fetch(`${apiUrl}/api/detection/drone-ids`, {
+        // เรียก Next.js API route แทนการเรียก external API โดยตรง (แก้ CORS)
+        const response = await fetch('/api/detection/drone-ids', {
           cache: 'no-store',
         });
         
