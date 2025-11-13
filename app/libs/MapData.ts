@@ -118,7 +118,7 @@ export interface Frame {
     alt_m?: number; // ✅ New format
     speed_kt?: number;
     speed_mps?: number; // ✅ New format
-    speed_m_s?: number; // ✅ New format
+    speed_m_s?: number; // ✅ New format (seems to be duplicate)
     bbox?: number[]; // ✅ New format
     confidence?: number; // ✅ New format
     timestamp?: string; // ✅ New format
@@ -209,7 +209,7 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   const c = 2 * Math.atan2(Math.sqrt(s1 + s2), Math.sqrt(1 - (s1 + s2)));
   return R * c;
 }
-// ✅ Map object from frame to Drone
+// ✅ Map object from frame to Drone - รองรับทั้ง format เก่าและใหม่
 export function mapBackendDrone(obj: any, camId?: string, timestamp?: string): Drone {
   // ✅ Determine status from type
   let status: "FRIEND" | "HOSTILE" | "UNKNOWN" = "UNKNOWN";
@@ -220,22 +220,38 @@ export function mapBackendDrone(obj: any, camId?: string, timestamp?: string): D
     status = "HOSTILE";
   }
 
-  // ✅ Extract values with proper fallbacks
+  // ✅ Extract position - รองรับทั้ง lng และ lon
   const lat = typeof obj.lat === 'number' ? obj.lat : (typeof obj.latitude === 'number' ? obj.latitude : 0);
-  const lng = typeof obj.lng === 'number' ? obj.lng : (typeof obj.longitude === 'number' ? obj.longitude : 0);
-  const alt = typeof obj.alt === 'number' ? obj.alt : (typeof obj.altitude_m === 'number' ? obj.altitude_m : 0);
-  const speedKt = typeof obj.speed_kt === 'number' ? obj.speed_kt : (obj.speed_mps ? obj.speed_mps * 1.94384 : 0);
+  const lng = typeof obj.lng === 'number' ? obj.lng : 
+              (typeof obj.lon === 'number' ? obj.lon : 
+              (typeof obj.longitude === 'number' ? obj.longitude : 0));
+  
+  // ✅ Extract altitude - รองรับทั้ง alt และ alt_m
+  const alt = typeof obj.alt_m === 'number' ? obj.alt_m : 
+              (typeof obj.alt === 'number' ? obj.alt : 
+              (typeof obj.altitude_m === 'number' ? obj.altitude_m : 0));
+  
+  // ✅ Extract speed - รองรับทั้ง speed_kt, speed_mps, และ speed_m_s
+  // แปลง m/s เป็น knots (1 m/s = 1.94384 knots)
+  let speedKt = 0;
+  if (typeof obj.speed_kt === 'number') {
+    speedKt = obj.speed_kt;
+  } else if (typeof obj.speed_m_s === 'number') {
+    speedKt = obj.speed_m_s * 1.94384;
+  } else if (typeof obj.speed_mps === 'number') {
+    speedKt = obj.speed_mps * 1.94384;
+  }
   
   return {
-    id: obj.obj_id || obj.drone_id || obj.id || "unknown",
-    callsign: (obj.obj_id || obj.drone_id || obj.id || "UNNAMED")?.toUpperCase(),
+    id: obj.drone_id || obj.obj_id || obj.id || "unknown",
+    callsign: (obj.drone_id || obj.obj_id || obj.id || "UNNAMED")?.toUpperCase(),
     type: obj.type || "unknown",
     status: status,
     speedKt: speedKt,
     altitudeFt: alt * 3.28084, // ✅ แปลงเมตรเป็นฟุต
     alt: alt, // ✅ เก็บค่าเมตรไว้สำหรับ tooltip
     headingDeg: 0,
-    position: [lat, lng] as [number, number], // ✅ ใช้ lat, lng โดยตรง
+    position: [lat, lng] as [number, number],
     lastUpdate: timestamp || obj.timestamp || new Date().toISOString(),
     imageUrl: obj.image_path || undefined,
     camId: camId || obj.camId || obj.cam_id,
@@ -255,7 +271,7 @@ export function getAllFrames(): Frame[] {
   return Array.from(frameStore.values());
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
-  const ws = new WebSocket("ws://82.26.104.161:3000/ws");
+  const ws = new WebSocket("ws://82.26.104.180:3000/ws?role=front");
   // const ws = new WebSocket("ws://ace42530b32d.ngrok-free.app/ws");
 
 
@@ -296,9 +312,42 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
     }
   }, 1_000);
 
-  ws.onmessage = (event) => {
+  ws.onmessage = async (event) => {
     try {
-      const data = JSON.parse(event.data);
+      // ✅ Handle Blob data from WebSocket
+      let rawData = event.data;
+      if (rawData instanceof Blob) {
+        // Check if it's a text blob or binary blob
+        const type = rawData.type;
+        if (type && !type.includes('text') && !type.includes('json')) {
+          // Skip binary data (images, compressed data, etc.)
+          return;
+        }
+        rawData = await rawData.text();
+      }
+      
+      // ✅ Skip if data is not a string (e.g., binary data)
+      if (typeof rawData !== 'string') {
+        return;
+      }
+      
+      // ✅ Check if string starts with valid JSON characters
+      const trimmed = rawData.trim();
+      if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+        // Not JSON, skip (could be binary data decoded as string)
+        return;
+      }
+      
+      const data = JSON.parse(rawData);
+      
+      // ✅ Log received data type for debugging
+      if (data.kind) {
+        console.log('📦 Received WebSocket data:', data.kind, {
+          frame_id: data.frame_id,
+          source_id: data.source_id,
+          objects: data.objects?.length || 0
+        });
+      }
       
       // ✅ Handle "hello" message from server (connection confirmation)
       if (data.type === "hello" && data.ok) {
@@ -331,6 +380,7 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
         
         // ✅ เก็บ frame ตาม cam_id
         frameStore.set(camId, frame);
+        console.log('📸 Stored frame_meta:', camId, 'Total frames:', frameStore.size);
         
         const frameTimestamp = frame.timestamp;
         objects = frame.objects.map((obj: any) => ({

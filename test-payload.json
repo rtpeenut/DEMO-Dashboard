@@ -1,0 +1,26 @@
+{
+  "kind": "frame_meta",
+  "frame_id": 650,
+  "timestamp": "2025-11-13T08:30:22Z",
+  "source_id": "pi-drone-01",
+  "image_info": {
+    "mime": "image/jpeg",
+    "width": 1920,
+    "height": 1080,
+    "quality": 40
+  },
+  "objects": [
+    {
+      "drone_id": "track-0",
+      "type": "unknown",
+      "lat": -40.9396935,
+      "lon": -32.9037552,
+      "alt_m": 43.46,
+      "speed_mps": 0,
+      "bbox": [459, 276, 59, 37],
+      "confidence": 0.73,
+      "timestamp": "2025-11-13T08:30:22Z",
+      "speed_m_s": 40715.94108711129
+    }
+  ]
+}

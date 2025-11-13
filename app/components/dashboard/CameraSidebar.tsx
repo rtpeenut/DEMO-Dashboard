@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
+import { getAllFrames } from '@/app/libs/MapData';
 import type { Frame } from '@/app/libs/MapData';
 
 interface CameraSidebarProps {
@@ -22,27 +23,22 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
     }
   }, []);
 
-  // ✅ ดึงข้อมูล frames จาก API
+  // ✅ ดึงข้อมูล frames จาก frameStore โดยตรง (client-side)
   useEffect(() => {
-    const fetchFrames = async () => {
-      try {
-        const res = await fetch('/api/frames', { cache: 'no-store' });
-        if (!res.ok) {
-          console.error('Failed to fetch frames:', res.status);
-          return;
-        }
-        const data = await res.json();
-        setFrames(data);
-      } catch (error) {
-        console.error('Error fetching frames:', error);
+    const updateFrames = () => {
+      const allFrames = getAllFrames();
+      console.log('📡 Fetched frames from frameStore:', allFrames.length, 'frames');
+      if (allFrames.length > 0) {
+        console.log('📸 First frame sample:', allFrames[0]);
       }
+      setFrames(allFrames);
     };
 
     // Initial load
-    fetchFrames();
+    updateFrames();
 
     // Update every 1 second to get latest frames
-    const interval = setInterval(fetchFrames, 1000);
+    const interval = setInterval(updateFrames, 1000);
 
     return () => clearInterval(interval);
   }, []);
@@ -92,7 +88,31 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
           const cameraInfo = frame.token_id?.camera_info;
           const camId = frame.cam_id || frame.source_id || 'unknown';
           const frameId = frame.fram_id || frame.frame_id?.toString() || camId;
-          const imageUrl = `http://82.26.104.161:3000/frames/${frameId}.jpg`;
+          
+          // ✅ สร้าง URL รูปภาพ - ลองหลาย format
+          // ลำดับความสำคัญ:
+          // 1. ใช้ imageUrl จาก frame ถ้ามี
+          // 2. ใช้ source_id + frame_id
+          // 3. ใช้ frameId
+          let imageUrl = '';
+          
+          if ((frame as any).imageUrl) {
+            imageUrl = (frame as any).imageUrl;
+          } else if (frame.source_id && frame.frame_id) {
+            // ลอง format ต่างๆ
+            imageUrl = `http://82.26.104.161:3000/frames/${frame.source_id}/${frame.frame_id}.jpg`;
+          } else {
+            imageUrl = `http://82.26.104.161:3000/frames/${frameId}.jpg`;
+          }
+          
+          console.log('📷 Camera frame:', {
+            camId,
+            frameId,
+            source_id: frame.source_id,
+            frame_id: frame.frame_id,
+            imageUrl,
+            hasImageUrl: !!(frame as any).imageUrl
+          });
           
           return (
             <div
@@ -129,18 +149,44 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
               <div className="relative w-full aspect-video bg-zinc-800 rounded-xl overflow-hidden border border-zinc-700">
                 <img
                   src={imageUrl}
-                  alt={`Camera ${frame.cam_id}`}
+                  alt={`Camera ${camId}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.currentTarget;
+                    const currentUrl = target.src;
+                    console.error('❌ Image load failed:', currentUrl);
+                    
+                    // ลอง URL อื่นๆ
+                    const alternativeUrls = [
+                      `http://82.26.104.161:3000/frames/${frame.source_id}/${frame.frame_id}.jpg`,
+                      `http://82.26.104.161:3000/frames/${frame.frame_id}.jpg`,
+                      `http://82.26.104.161:3000/frames/${frameId}.jpg`,
+                      `http://82.26.104.161:3000/api/frames/${frame.source_id}/${frame.frame_id}.jpg`,
+                    ].filter(url => url !== currentUrl && !url.includes('undefined'));
+                    
+                    // ลอง URL ถัดไป
+                    if (alternativeUrls.length > 0 && !target.dataset.tried) {
+                      target.dataset.tried = 'true';
+                      console.log('🔄 Trying alternative URL:', alternativeUrls[0]);
+                      target.src = alternativeUrls[0];
+                      return;
+                    }
+                    
+                    // ถ้าลองหมดแล้ว แสดง NO FEED
                     target.style.display = 'none';
                     const parent = target.parentElement;
                     if (parent && !parent.querySelector('.no-feed-message')) {
                       const noFeedDiv = document.createElement('div');
-                      noFeedDiv.className = 'no-feed-message absolute inset-0 flex items-center justify-center text-zinc-500 text-sm font-semibold';
-                      noFeedDiv.textContent = 'NO FEED';
+                      noFeedDiv.className = 'no-feed-message absolute inset-0 flex flex-col items-center justify-center text-zinc-500 text-xs font-semibold p-2';
+                      noFeedDiv.innerHTML = `
+                        <div>NO FEED</div>
+                        <div class="text-[10px] text-zinc-600 mt-1 break-all text-center">Tried: ${currentUrl}</div>
+                      `;
                       parent.appendChild(noFeedDiv);
                     }
+                  }}
+                  onLoad={() => {
+                    console.log('✅ Image loaded:', imageUrl);
                   }}
                 />
                 

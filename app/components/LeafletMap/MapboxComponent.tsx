@@ -581,7 +581,7 @@ const MapComponent = ({
         drones={drones} 
         onDroneInZone={handleDroneInZone}
       />
-      <MapboxDroneMarkers map={map.current} onSelect={onSelectDrone} followDrone={followDrone} />
+      <MapboxDroneMarkers map={map.current} drones={drones} onSelect={onSelectDrone} followDrone={followDrone} />
     </Box>
   );
 };

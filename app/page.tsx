@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
 
 const MapboxComponent = dynamic(() => import("@/app/components/LeafletMap/MapboxComponent"), { ssr: false });
+const MapboxSecondaryMap = dynamic(() => import("@/app/components/LeafletMap/MapboxSecondaryMap"), { ssr: false });
 const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolbar"), { ssr: false });
 const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
@@ -14,6 +15,7 @@ const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/Not
 const NotificationPanel = dynamic(() => import("@/app/components/dashboard/NotificationPanel"), { ssr: false });
 const CameraSidebar = dynamic(() => import("@/app/components/dashboard/CameraSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
+const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
 
 
@@ -50,7 +52,19 @@ export default function HomePage() {
   const [openNotif, setOpenNotif] = useState(false);
   const [openSettings, setOpenSettings] = useState(false);
   const [showProtect, setShowProtect] = useState(false);
+  const [splitScreen, setSplitScreen] = useState(false);
+  const [secondaryFollowDrone, setSecondaryFollowDrone] = useState<Drone | null>(null);
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
+
+  // ✅ Resize maps when split screen changes
+  useEffect(() => {
+    // Trigger resize after transition completes
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 350); // Match transition duration (300ms + buffer)
+
+    return () => clearTimeout(timer);
+  }, [splitScreen]);
   const [selectedDroneHistory, setSelectedDroneHistory] = useState<{ id: string; name: string } | null>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
@@ -97,62 +111,61 @@ export default function HomePage() {
     };
   }, []);
 
-  // ✅ Load marks from API on initial render
-  useEffect(() => {
-    const loadMarks = async () => {
-      try {
-        const response = await fetch("/api/marks", { cache: "no-store" });
-        if (!response.ok) throw new Error("Failed to load marks");
-        const data = await response.json();
-        setMarks(data.map((m: any) => ({
-          id: m.id,
-          name: m.name,
-          color: m.color,
-          pos: m.pos,
-          radius: m.radius,
-        })));
-      } catch (error) {
-        console.error("Error loading marks:", error);
-      }
-    };
-    loadMarks();
-  }, []);
+  // ✅ No need to load marks from API (using in-memory only)
+  // useEffect(() => {
+  //   const loadMarks = async () => {
+  //     try {
+  //       const response = await fetch("/api/marks", { cache: "no-store" });
+  //       if (!response.ok) throw new Error("Failed to load marks");
+  //       const data = await response.json();
+  //       setMarks(data.map((m: any) => ({
+  //         id: m.id,
+  //         name: m.name,
+  //         color: m.color,
+  //         pos: m.pos,
+  //         radius: m.radius,
+  //       })));
+  //     } catch (error) {
+  //       console.error("Error loading marks:", error);
+  //     }
+  //   };
+  //   loadMarks();
+  // }, []);
 
-  // ✅ Handle adding a mark via API
+  // ✅ Handle adding a mark (in-memory only, no backend)
   const handleAddMark = async (mark: { name: string; color: string; pos: [number, number]; radius: number }) => {
+    console.log('🎯 handleAddMark called:', mark);
     try {
-      const response = await fetch("/api/marks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mark),
-      });
-      if (!response.ok) throw new Error("Failed to create mark");
-      const newMark = await response.json();
-      // Update state with the new mark (exclude createdAt from state)
-      setMarks((prev: Mark[]) => [...prev, {
-        id: newMark.id,
-        name: newMark.name,
-        color: newMark.color,
-        pos: newMark.pos,
-        radius: newMark.radius,
-      }]);
+      // สร้าง mark ใหม่แบบ in-memory (ไม่เรียก backend)
+      const newMark: Mark = {
+        id: `mark-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: mark.name,
+        color: mark.color,
+        pos: mark.pos,
+        radius: mark.radius,
+      };
+      
+      console.log('✅ Mark created (in-memory):', newMark);
+      
+      // Update state
+      setMarks((prev: Mark[]) => [...prev, newMark]);
+      
+      console.log('✅ State updated, closing marking mode');
     } catch (error) {
-      console.error("Error creating mark:", error);
-      throw error; // Re-throw so MapboxComponent can handle it
+      console.error("❌ Error creating mark:", error);
+      throw error;
     }
   };
 
-  // ✅ Handle deleting a mark via API
+  // ✅ Handle deleting a mark (in-memory only, no backend)
   const handleDeleteMark = async (id: string) => {
+    console.log('🗑️ Deleting mark:', id);
     try {
-      const response = await fetch(`/api/marks/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete mark");
-      // Update state after successful deletion
+      // ลบ mark แบบ in-memory (ไม่เรียก backend)
       setMarks((prev: Mark[]) => prev.filter((m: Mark) => m.id !== id));
+      console.log('✅ Mark deleted (in-memory)');
     } catch (error) {
-      console.error("Error deleting mark:", error);
+      console.error("❌ Error deleting mark:", error);
     }
   };
 
@@ -279,10 +292,23 @@ export default function HomePage() {
   };
 
   return (
-    <main className="h-screen w-screen">
-      <div className="relative h-full w-full">
-        {/* ✅ ใช้ Mapbox แทน Leaflet */}
-        <MapboxComponent
+    <main className="h-screen w-screen overflow-hidden">
+      <div className="relative h-full w-full flex">
+        {/* ✅ แผนที่ฝั่งซ้าย (โดรนฝั่งเรา) */}
+        {splitScreen && (
+          <div className="relative w-[25%] rounded-r-3xl overflow-hidden shadow-2xl">
+            <MapboxSecondaryMap 
+              mapStyle={mapStyle} 
+              followDrone={secondaryFollowDrone}
+              drones={drones}
+              marks={marks}
+            />
+          </div>
+        )}
+
+        {/* ✅ แผนที่หลัก */}
+        <div className={`relative transition-all duration-300 ${splitScreen ? 'w-[75%]' : 'w-full'} ${splitScreen ? 'rounded-l-3xl overflow-hidden shadow-2xl' : ''}`}>
+          <MapboxComponent
           objects={mapboxObjects}
           imagePath={undefined}
           cameraLocation={"defence"}
@@ -299,6 +325,24 @@ export default function HomePage() {
           mapStyle={mapStyle}
           onMapStyleChange={setMapStyle}
         />
+
+        {/* ✅ Popup แจ้งเตือนโดรนใหม่ - แสดงเฉพาะในแผนที่หลัก */}
+        <NotificationPanel 
+          notifications={popupNotifications}
+          setNotifications={setPopupNotifications}
+        />
+
+        {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
+        {isMarking && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1300]">
+            <div className="flex items-center gap-2 rounded-xl px-4 py-2 ui-card bg-amber-500/90 border border-amber-400">
+              <span className="text-amber-400 font-semibold text-sm">
+                กรุณาเลือกจุดที่จะสร้างรัศมีป้องกัน
+              </span>
+            </div>
+          </div>
+        )}
+        </div>
 
         {openHome && (
           <HomeSidebar
@@ -353,6 +397,15 @@ export default function HomePage() {
             onClose={() => setOpenSettings(false)}
           />
         )}
+        {showProtect && (
+          <ProtectSidebar
+            zones={marks}
+            onAddZone={() => setIsMarking(true)}
+            onDeleteZone={handleDeleteMark}
+            isMarking={isMarking}
+            onClose={() => setShowProtect(false)}
+          />
+        )}
 
         <RightToolbar
           onHomeClick={() => {
@@ -372,6 +425,7 @@ export default function HomePage() {
           }}
           onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenCamera(false); setOpenNotif((v)=>!v); }}
           onProtectClick={() => setShowProtect(!showProtect)}
+          onSplitScreenClick={() => setSplitScreen((v) => !v)}
           onSettingsClick={() => setOpenSettings((v) => !v)}
           on3DToggle={() => {
             if ((window as any).mapbox3DToggle) {
@@ -397,23 +451,6 @@ export default function HomePage() {
             setPopupNotifications((prev) => [notif, ...prev]);
           }}
         />
-        
-        {/* ✅ Popup แจ้งเตือนโดรนใหม่ */}
-        <NotificationPanel 
-          notifications={popupNotifications}
-          setNotifications={setPopupNotifications}
-        />
-
-        {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
-        {isMarking && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1300]">
-            <div className="flex items-center gap-2 rounded-xl px-4 py-2 ui-card bg-amber-500/90 border border-amber-400">
-              <span className="text-amber-400 font-semibold text-sm">
-                กรุณาเลือกจุดที่จะสร้างรัศมีป้องกัน
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* ✅ กล่องรายละเอียดโดรน */}
         {selectedDrone && (
@@ -422,6 +459,10 @@ export default function HomePage() {
             onClose={() => setSelectedDrone(null)}
             isFollowing={followDrone?.id === selectedDrone?.id}
             onFollow={(d, follow) => setFollowDrone(follow ? d : null)}
+            onSplitScreen={(drone) => {
+              setSplitScreen(true);
+              setSecondaryFollowDrone(drone);
+            }}
           />
         )}
       </div>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef } from "react";
 import mapboxgl from "mapbox-gl";
-import { Drone, subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
+import { Drone } from "@/app/libs/MapData";
 import { getDroneColorByAltitude } from "@/app/utils/mapUtils";
 
 interface MapboxDroneMarkersProps {
@@ -17,8 +17,7 @@ const LAYER_ID = 'drones-layer';
 const PULSE_SOURCE_ID = 'drone-pulse-source';
 const PULSE_LAYER_ID = 'drone-pulse-layer';
 
-export default function MapboxDroneMarkers({ map, onSelect, followDrone }: MapboxDroneMarkersProps) {
-  const [drones, setDrones] = useState<Drone[]>([]);
+export default function MapboxDroneMarkers({ map, drones, onSelect, followDrone }: MapboxDroneMarkersProps) {
   const dronesRef = useRef<Drone[]>([]);
   const onSelectRef = useRef(onSelect);
   const layersAddedRef = useRef(false);

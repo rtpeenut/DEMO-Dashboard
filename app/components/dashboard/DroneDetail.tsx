@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState, useMemo } from 'react';
-import { Route, Plus } from "lucide-react";
+import { Route, Plus, Columns } from "lucide-react";
 import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData"; // ✅ ใช้ WebSocket/REST ตามการตั้งค่า
 import { latLngToMGRS } from "@/app/utils/mapUtils";
 
@@ -24,9 +24,10 @@ interface DroneDetailProps {
   onClose?: () => void;
   onFollow?: (drone: any, isFollowing: boolean) => void;
   isFollowing?: boolean;
+  onSplitScreen?: (drone: any) => void;
 }
 
-export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: DroneDetailProps) {
+export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onSplitScreen }: DroneDetailProps) {
   const [droneData, setDroneData] = useState(drone);
 
   useEffect(() => {
@@ -265,16 +266,16 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
         </div>
 
         {/* Buttons */}
-        <div className="grid grid-cols-2 gap-3 mt-3">
+        <div className="grid grid-cols-3 gap-2 mt-3">
           {/* ROUTE */}
           <button className="flex flex-col items-center justify-center gap-1 rounded-xl bg-zinc-800 border border-zinc-700 py-3 text-sm hover:bg-zinc-700 transition">
             <Route size={18} className="text-white" />
-            <span>ROUTE</span>
+            <span className="text-xs">ROUTE</span>
           </button>
 
           {/* FOLLOW */}
           <button
-            onClick={() => onFollow?.(droneData, !isFollowing)} // ✅ ไม่มี state ซ้ำ
+            onClick={() => onFollow?.(droneData, !isFollowing)}
             className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-3 text-sm transition
               ${
                 isFollowing
@@ -283,7 +284,16 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
               }`}
           >
             <Plus size={18} />
-            <span>{isFollowing ? "FOLLOWING" : "FOLLOW"}</span>
+            <span className="text-xs">{isFollowing ? "FOLLOWING" : "FOLLOW"}</span>
+          </button>
+
+          {/* SPLIT SCREEN */}
+          <button
+            onClick={() => onSplitScreen?.(droneData)}
+            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-zinc-800 border border-zinc-700 py-3 text-sm hover:bg-zinc-700 transition"
+          >
+            <Columns size={18} className="text-white" />
+            <span className="text-xs">SPLIT</span>
           </button>
         </div>
       </div>
