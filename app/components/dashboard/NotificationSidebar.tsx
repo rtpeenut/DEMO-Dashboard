@@ -84,8 +84,29 @@ export default function NotificationSidebar({
           <div className="m-2 text-sm text-zinc-400 text-center">No notifications yet</div>
         )}
         {items.map((n) => {
+          // ✅ แยกประเภทการแจ้งเตือน
+          const isNewDrone = n.message?.includes("ตรวจพบโดรนใหม่");
           const isEnter = n.message?.includes("เข้า");
-          const accent = isEnter ? "text-green-400" : "text-amber-400";
+          const isExit = n.message?.includes("ออก");
+          
+          let eventType = "UNKNOWN";
+          let eventColor = "text-zinc-400";
+          let badgeColor = "bg-zinc-600";
+          
+          if (isNewDrone) {
+            eventType = "NEW DRONE";
+            eventColor = "text-blue-400";
+            badgeColor = "bg-blue-600";
+          } else if (isEnter) {
+            eventType = "ENTER";
+            eventColor = "text-green-400";
+            badgeColor = "bg-green-600";
+          } else if (isExit) {
+            eventType = "EXIT";
+            eventColor = "text-amber-400";
+            badgeColor = "bg-amber-600";
+          }
+          
           return (
             <div
               key={n.id}
@@ -110,8 +131,12 @@ export default function NotificationSidebar({
                   {/* Event box */}
                   <div className="mt-3 rounded-lg border border-zinc-700/70 bg-zinc-900/60 px-3 py-2">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="ui-pill px-2 py-[2px] rounded-md text-[11px] font-semibold">EVENT</span>
-                      <span className={`text-[11px] ${accent}`}>{isEnter ? "ENTER" : "EXIT"}</span>
+                      <span className={`${badgeColor} px-2 py-[2px] rounded-md text-[11px] font-semibold text-white`}>
+                        {eventType}
+                      </span>
+                      <span className={`text-[11px] ${eventColor}`}>
+                        {n.drone.status}
+                      </span>
                     </div>
                     <div className="text-sm text-zinc-100 leading-snug">
                       {n.message} {n.zoneName ? `(${n.zoneName})` : ''}

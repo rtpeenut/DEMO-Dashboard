@@ -10,7 +10,9 @@ const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
 const DroneHistoryPanel = dynamic(() => import("@/app/components/dashboard/DroneHistoryPanel"), { ssr: false });
+const MapCompass = dynamic(() => import("@/app/components/dashboard/MapCompass"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
+const NotificationPanel = dynamic(() => import("@/app/components/dashboard/NotificationPanel"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
 
@@ -43,18 +45,48 @@ export default function HomePage() {
   const [selectedDroneHistory, setSelectedDroneHistory] = useState<{ id: string; name: string } | null>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
+  const [mapInstance, setMapInstance] = useState<any>(null);
+
+  // Get map instance from window
+  useEffect(() => {
+    const checkMap = setInterval(() => {
+      if ((window as any).mapboxInstance) {
+        setMapInstance((window as any).mapboxInstance);
+        clearInterval(checkMap);
+      }
+    }, 100);
+
+    return () => clearInterval(checkMap);
+  }, []);
 
   // Calculate toolbar height
   useEffect(() => {
-    const toolbar = document.querySelector('#right-toolbar');
-    if (toolbar) {
-      const { height } = toolbar.getBoundingClientRect();
-      setToolbarHeight(height);
-    }
+    const updateToolbarHeight = () => {
+      const toolbar = document.querySelector('#right-toolbar');
+      if (toolbar) {
+        const { height } = toolbar.getBoundingClientRect();
+        setToolbarHeight(height);
+      }
+    };
+
+    // Initial calculation
+    updateToolbarHeight();
+
+    // Re-calculate after a short delay to ensure RightToolbar is rendered
+    const timer = setTimeout(updateToolbarHeight, 100);
+
+    // Re-calculate on window resize
+    window.addEventListener('resize', updateToolbarHeight);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateToolbarHeight);
+    };
   }, []);
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
 
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
+  const [popupNotifications, setPopupNotifications] = useState<any[]>([]); // ✅ เก็บการแจ้งเตือนแบบ popup
   const [drones, setDrones] = useState<Drone[]>([]); // ✅ เก็บ drones สำหรับ HUD และ Sidebar
   const [filter, setFilter] = useState<'ALL' | 'FRIEND' | 'HOSTILE' | 'UNKNOWN'>('ALL');
   const [selectedCamId, setSelectedCamId] = useState<string | undefined>();
@@ -249,7 +281,22 @@ export default function HomePage() {
           }}
         />
 
-        <DroneCounter marksCount={0} />
+        <DroneCounter 
+          marksCount={0} 
+          onNewDroneDetected={(notif) => {
+            // ✅ เพิ่มการแจ้งเตือนโดรนใหม่เข้าไปในรายการประวัติ (ใส่ไว้หัว array)
+            setNotifications((prev) => [notif, ...prev]);
+            // ✅ เพิ่มการแจ้งเตือนแบบ popup (ใส่ไว้หัว array)
+            setPopupNotifications((prev) => [notif, ...prev]);
+          }}
+        />
+        <MapCompass map={mapInstance} />
+        
+        {/* ✅ Popup แจ้งเตือนโดรนใหม่ */}
+        <NotificationPanel 
+          notifications={popupNotifications}
+          setNotifications={setPopupNotifications}
+        />
 
 
 

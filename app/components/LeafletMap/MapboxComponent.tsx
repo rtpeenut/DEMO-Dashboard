@@ -186,7 +186,8 @@ const MapComponent = ({
       zoom: 17,
     });
 
-
+    // Store map instance in window for MapCompass
+    (window as any).mapboxInstance = map.current;
 
     // Bridge zoom events ให้เข้ากับ RightToolbar เดิม
     const m = map.current;

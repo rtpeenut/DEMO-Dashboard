@@ -111,7 +111,7 @@ export default function RightToolbar({
           {/* เรียกใช้ onHomeClick ตรงปุ่ม Home */}
           <ToolbarButton icon={Home} label="Home" onClick={onHomeClick} />
           <ToolbarButton icon={Layers} label="Layers" onClick={onDataClick} />
-          <ToolbarButton icon={Camera} label="Snapshot" />
+          {/* <ToolbarButton icon={Camera} label="Snapshot" /> */}
           {/* ✅ เมื่อกด Bell ให้เปิด/ปิด Sidebar Notification */}
           <ToolbarButton icon={Bell}   label="Alerts" onClick={onNotifClick} />
           <ToolbarButton icon={Shield}   label="Protection" onClick={onProtectClick}/>

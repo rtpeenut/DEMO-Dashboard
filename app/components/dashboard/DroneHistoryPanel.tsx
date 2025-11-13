@@ -43,6 +43,8 @@ interface DroneHistoryPanelProps {
 export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, onClose }: DroneHistoryPanelProps) {
   const [historyData, setHistoryData] = useState<DroneHistoryData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // ✅ ดึงข้อมูลย้อนหลังจาก backend (ยังไม่ได้ทำ API)
   useEffect(() => {
@@ -225,23 +227,53 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-700">
-                      {historyData.map((data, index) => (
-                        <tr key={index} className="hover:bg-zinc-800/40 transition">
-                          <td className="px-3 py-2 text-xs text-zinc-300">{data.timestamp}</td>
-                          <td className="px-3 py-2 text-xs text-amber-400 font-mono">
-                            {data.lat.toFixed(4)}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-amber-400 font-mono">
-                            {data.lng.toFixed(4)}
-                          </td>
-                          <td className="px-3 py-2 text-xs text-amber-400 font-semibold">
-                            {data.alt.toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
+                      {historyData
+                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                        .map((data, index) => (
+                          <tr key={index} className="hover:bg-zinc-800/40 transition">
+                            <td className="px-3 py-2 text-xs text-zinc-300">{data.timestamp}</td>
+                            <td className="px-3 py-2 text-xs text-amber-400 font-mono">
+                              {data.lat.toFixed(4)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-amber-400 font-mono">
+                              {data.lng.toFixed(4)}
+                            </td>
+                            <td className="px-3 py-2 text-xs text-amber-400 font-semibold">
+                              {data.alt.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
+                
+                {/* Pagination */}
+                {historyData.length > itemsPerPage && (
+                  <div className="flex items-center justify-between px-4 py-3 bg-zinc-800 border-t border-zinc-700">
+                    <div className="text-xs text-zinc-400">
+                      แสดง {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, historyData.length)} จาก {historyData.length} รายการ
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1 text-xs rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        ก่อนหน้า
+                      </button>
+                      <span className="px-3 py-1 text-xs text-zinc-400">
+                        {currentPage} / {Math.ceil(historyData.length / itemsPerPage)}
+                      </span>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(historyData.length / itemsPerPage), p + 1))}
+                        disabled={currentPage === Math.ceil(historyData.length / itemsPerPage)}
+                        className="px-3 py-1 text-xs rounded-lg bg-zinc-700 text-zinc-300 hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        ถัดไป
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </>
           )}
