@@ -24,8 +24,9 @@ interface DataBarProps {
 
 export default function DataBar({ onClose, onSelectDrone }: DataBarProps) {
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
-  const [drones, setDrones] = useState<DroneData[]>([]);
+  const [droneIds, setDroneIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,20 +36,34 @@ export default function DataBar({ onClose, onSelectDrone }: DataBarProps) {
       const { height } = toolbar.getBoundingClientRect();
       setToolbarHeight(height);
     }
+  }, []);
 
-    // ✅ เลือกแหล่งข้อมูลจาก env: NEXT_PUBLIC_DATA_SOURCE = 'api' | 'ws'
-    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
-    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
-      if (Array.isArray(list)) {
-        setDrones(list as unknown as DroneData[]);
-      } else {
-        // กันเคสข้อมูลผิดรูปแบบ
-        setDrones([]);
-        console.warn("Invalid drones data:", list);
+  // ✅ ดึงรายการ drone IDs จาก database
+  useEffect(() => {
+    const fetchDroneIds = async () => {
+      try {
+        setIsLoading(true);
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://82.26.104.180:3000';
+        const response = await fetch(`${apiUrl}/api/detection/drone-ids`, {
+          cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const ids: string[] = await response.json();
+        console.log('📡 Fetched drone IDs from database:', ids.length);
+        setDroneIds(ids);
+      } catch (error) {
+        console.error('Error fetching drone IDs:', error);
+        setDroneIds([]);
+      } finally {
+        setIsLoading(false);
       }
-    });
+    };
 
-    return stop; // cleanup: ปิด subscription เมื่อ unmount
+    fetchDroneIds();
   }, []);
 
   return (
@@ -96,48 +111,51 @@ export default function DataBar({ onClose, onSelectDrone }: DataBarProps) {
 
       {/* Drone List */}
       <div className="space-y-3 overflow-y-auto flex-1">
-        {drones
-          .filter((d) => 
-            searchQuery === "" || 
-            d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            d.callsign.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .map((d) => (
-            <button
-              key={d.id}
-              onClick={() => {
-                console.log('Clicked drone:', d.id, d.callsign);
-                onSelectDrone?.({ id: d.id, name: d.callsign });
-              }}
-              className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 flex items-center justify-between hover:border-amber-400 hover:bg-zinc-800 transition cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
-                  <Drone size={34} />
+        {isLoading ? (
+          <div className="text-center py-8 text-zinc-400 text-sm">
+            Loading drone list...
+          </div>
+        ) : droneIds.length === 0 ? (
+          <div className="text-center py-8 text-zinc-400 text-sm">
+            No drones found in database
+          </div>
+        ) : (
+          droneIds
+            .filter((id) => 
+              searchQuery === "" || 
+              id.toLowerCase().includes(searchQuery.toLowerCase())
+            )
+            .map((id) => (
+              <button
+                key={id}
+                onClick={() => {
+                  console.log('Clicked drone:', id);
+                  onSelectDrone?.({ id: id, name: id.toUpperCase() });
+                }}
+                className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 flex items-center justify-between hover:border-amber-400 hover:bg-zinc-800 transition cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
+                    <Drone size={34} />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-amber-400 font-extrabold">{id.toUpperCase()}</div>
+                    <div className="text-sm text-zinc-300">• unknown</div>
+                    <div className="text-xs text-zinc-500 mt-1">ID : {id}</div>
+                    <div className="text-xs text-zinc-400 mt-1">MGRS : -</div>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <div className="text-amber-400 font-extrabold">{d.callsign}</div>
-                  <div className="text-sm text-zinc-300">• {d.type}</div>
-                  <div className="text-xs text-zinc-500 mt-1">ID : {d.id}</div>
-                  <div className="text-xs text-zinc-400 mt-1">MGRS : {d.mgrs || '-'}</div>
+                <div className="text-right">
+                  <div className="text-xs text-zinc-400">STATUS</div>
+                  <div className="font-semibold text-zinc-300">
+                    • UNKNOWN
+                  </div>
+                  <div className="text-xs text-zinc-400 mt-1">SPEED</div>
+                  <div className="text-zinc-100 font-medium">- kt</div>
                 </div>
-              </div>
-              <div className="text-right">
-                <div className="text-xs text-zinc-400">STATUS</div>
-                <div
-                  className={`font-semibold ${
-                    d.status === "HOSTILE" ? "text-red-400" : 
-                    d.status === "FRIEND" ? "text-green-400" : 
-                    "text-zinc-300"
-                  }`}
-                >
-                  • {d.status}
-                </div>
-                <div className="text-xs text-zinc-400 mt-1">SPEED</div>
-                <div className="text-zinc-100 font-medium">{d.speedKt.toFixed(2)} kt</div>
-              </div>
-            </button>
-          ))}
+              </button>
+            ))
+        )}
       </div>
 
     </aside>

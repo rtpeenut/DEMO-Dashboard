@@ -9,10 +9,29 @@ interface CameraSidebarProps {
   onClose?: () => void;
 }
 
+interface WSImageMessage {
+  type: 'image';
+  name: string;
+  mime: string;
+  data: string; // Base64
+  cam_id?: string;
+  frame_id?: string | number;
+  timestamp?: string;
+  objects?: any[];
+  image_info?: {
+    width: number;
+    height: number;
+    quality?: number;
+    mime?: string;
+  };
+}
+
 export default function CameraSidebar({ onClose }: CameraSidebarProps) {
   const [frames, setFrames] = useState<Frame[]>([]);
+  const [liveImages, setLiveImages] = useState<Map<string, string>>(new Map());
   const ref = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // ✅ จัดการขนาดให้สูงเท่ากับแถบเครื่องมือด้านขวา
   useEffect(() => {
@@ -21,6 +40,73 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
       const { height } = toolbar.getBoundingClientRect();
       setToolbarHeight(height);
     }
+  }, []);
+
+  // ✅ WebSocket connection สำหรับรับภาพ realtime
+  useEffect(() => {
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://82.26.104.161:3000/ws';
+    console.log('🔌 Connecting to WebSocket:', wsUrl);
+    
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('✅ WebSocket connected');
+    };
+
+    ws.onmessage = (ev) => {
+      try {
+        // รับข้อมูลแบบ JSON (Base64)
+        const msg: WSImageMessage = JSON.parse(ev.data);
+        
+        if (msg.type === 'image' && msg.mime && msg.data) {
+          const camId = msg.cam_id || 'unknown';
+          const imgUrl = `data:${msg.mime};base64,${msg.data}`;
+          
+          console.log('📸 Received image via WebSocket:', {
+            camId,
+            frameId: msg.frame_id,
+            mime: msg.mime,
+            size: msg.data.length
+          });
+          
+          // อัปเดตภาพ live
+          setLiveImages(prev => {
+            const newMap = new Map(prev);
+            newMap.set(camId, imgUrl);
+            return newMap;
+          });
+        }
+      } catch (err) {
+        // ถ้าไม่ใช่ JSON อาจเป็น binary
+        if (ev.data instanceof ArrayBuffer) {
+          const blob = new Blob([ev.data], { type: 'image/jpeg' });
+          const url = URL.createObjectURL(blob);
+          
+          // ใช้ default cam_id ถ้าไม่มีข้อมูล
+          setLiveImages(prev => {
+            const newMap = new Map(prev);
+            newMap.set('default', url);
+            return newMap;
+          });
+        }
+      }
+    };
+
+    ws.onerror = (e) => {
+      console.error('❌ WebSocket error:', e);
+    };
+
+    ws.onclose = () => {
+      console.log('🔌 WebSocket closed');
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+    };
   }, []);
 
   // ✅ ดึงข้อมูล frames จาก frameStore โดยตรง (client-side)
@@ -150,12 +236,18 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
               {/* Camera Feed Image */}
               <div className="relative w-full aspect-video bg-zinc-800 rounded-xl overflow-hidden border border-zinc-700">
                 <img
-                  src={imageUrl}
+                  src={liveImages.get(camId) || imageUrl}
                   alt={`Camera ${camId}`}
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.currentTarget;
                     const currentUrl = target.src;
+                    
+                    // ถ้าเป็น live image ที่ error ให้ fallback ไปใช้ imageUrl
+                    if (currentUrl.startsWith('data:')) {
+                      target.src = imageUrl;
+                      return;
+                    }
                     
                     // ลอง URL อื่นๆ
                     const alternativeUrls = [
@@ -186,7 +278,7 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
                     }
                   }}
                   onLoad={() => {
-                    console.log('✅ Image loaded:', imageUrl);
+                    console.log('✅ Image loaded:', liveImages.get(camId) ? 'WebSocket' : 'HTTP');
                   }}
                 />
                 

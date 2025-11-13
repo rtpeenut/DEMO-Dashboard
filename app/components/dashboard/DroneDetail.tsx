@@ -25,9 +25,10 @@ interface DroneDetailProps {
   onFollow?: (drone: any, isFollowing: boolean) => void;
   isFollowing?: boolean;
   onSplitScreen?: (drone: any) => void;
+  splitScreen?: boolean;
 }
 
-export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onSplitScreen }: DroneDetailProps) {
+export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onSplitScreen, splitScreen }: DroneDetailProps) {
   const [droneData, setDroneData] = useState(drone);
 
   useEffect(() => {
@@ -141,7 +142,13 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
   }, [droneData.position, droneData.mgrs]);
 
   return (
-    <div className="absolute top-14 left-4 right-4 md:right-auto z-[1200] w-auto md:w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl overflow-hidden font-prompt">
+    <div 
+      className="absolute top-14 z-[1200] w-auto md:w-[340px] rounded-2xl bg-zinc-900/95 backdrop-blur border border-zinc-700 shadow-2xl overflow-hidden font-prompt transition-all duration-300"
+      style={{
+        left: splitScreen ? 'calc(25% + 1rem)' : '1rem',
+        right: splitScreen ? 'auto' : '1rem',
+      }}
+    >
       
       {/* Header */}
       <div className="flex justify-between items-center bg-zinc-800 px-4 py-3">
@@ -290,10 +297,15 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
           {/* SPLIT SCREEN */}
           <button
             onClick={() => onSplitScreen?.(droneData)}
-            className="flex flex-col items-center justify-center gap-1 rounded-xl bg-zinc-800 border border-zinc-700 py-3 text-sm hover:bg-zinc-700 transition"
+            className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-3 text-sm transition
+              ${
+                splitScreen
+                  ? "bg-amber-500 border-amber-400 text-black"
+                  : "bg-zinc-800 border-zinc-700 hover:bg-zinc-700 text-white"
+              }`}
           >
-            <Columns size={18} className="text-white" />
-            <span className="text-xs">SPLIT</span>
+            <Columns size={18} />
+            <span className="text-xs">{splitScreen ? "SPLIT ON" : "SPLIT"}</span>
           </button>
         </div>
       </div>

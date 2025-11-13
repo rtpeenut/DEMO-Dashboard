@@ -53,7 +53,7 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
         setIsLoading(true);
         
         // ✅ เรียก API detection path
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://82.26.104.188:3000';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://82.26.104.180:3000';
         const response = await fetch(`${apiUrl}/api/detection/${droneId}/path`, {
           cache: 'no-store',
         });
@@ -66,9 +66,10 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
         console.log('📊 Drone history data:', data);
         
         // ✅ แปลงข้อมูลจาก API เป็น format ที่ใช้แสดงผล
-        const formattedData: DroneHistoryData[] = data.count.map((item: any) => {
+        // API response: { droneId, count, path: [{ ts, lat, lon, altM, speedMS, headingDeg }] }
+        const formattedData: DroneHistoryData[] = (data.path || []).map((item: any) => {
           // แปลง timestamp เป็น readable format
-          const date = new Date(item.t);
+          const date = new Date(item.ts);
           const timeStr = date.toLocaleTimeString('th-TH', { 
             hour: '2-digit', 
             minute: '2-digit',
@@ -78,8 +79,8 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
           return {
             timestamp: timeStr,
             lat: item.lat,
-            lng: item.lng,
-            alt: item.alt || 0,
+            lng: item.lon, // API ใช้ lon ไม่ใช่ lng
+            alt: item.altM || 0, // API ใช้ altM (meters)
           };
         });
         
@@ -101,7 +102,7 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
     labels: historyData.map(d => d.timestamp),
     datasets: [
       {
-        label: 'Altitude (ft)',
+        label: 'Altitude (m)',
         data: historyData.map(d => d.alt),
         borderColor: '#fb923c', // สีส้ม
         backgroundColor: 'rgba(251, 146, 60, 0.1)',
@@ -229,7 +230,7 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
                           Lng
                         </th>
                         <th className="px-3 py-2 text-left text-[10px] font-semibold text-zinc-400 uppercase">
-                          Alt (ft)
+                          Alt (m)
                         </th>
                       </tr>
                     </thead>

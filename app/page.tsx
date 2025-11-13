@@ -460,9 +460,17 @@ export default function HomePage() {
             isFollowing={followDrone?.id === selectedDrone?.id}
             onFollow={(d, follow) => setFollowDrone(follow ? d : null)}
             onSplitScreen={(drone) => {
-              setSplitScreen(true);
-              setSecondaryFollowDrone(drone);
+              if (splitScreen) {
+                // ถ้าเปิดอยู่แล้ว ให้ปิด
+                setSplitScreen(false);
+                setSecondaryFollowDrone(null);
+              } else {
+                // ถ้าปิดอยู่ ให้เปิด
+                setSplitScreen(true);
+                setSecondaryFollowDrone(drone);
+              }
             }}
+            splitScreen={splitScreen}
           />
         )}
       </div>
