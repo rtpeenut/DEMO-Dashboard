@@ -2,23 +2,30 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Drone, Search, Layers } from "lucide-react";
-import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData"; // ✅ ใช้ WebSocket หรือ API สำหรับอัปเดตโดรนแบบเรียลไทม์
+import { subscribeDrones, subscribeDronesApi } from "@/app/libs/MapData";
+
 
 interface DroneData {
   id: string;
   callsign: string;
   type: string;
   status: string;
-  mgrs?: string; // ✅ อาจไม่มีจาก backend
+  mgrs?: string;
   speedKt: number;
   altitudeFt: number;
-  lastUpdate?: string; // ✅ ทำเป็น optional
-  imageUrl?: string; // ✅ ทำเป็น optional
+  lastUpdate?: string;
+  imageUrl?: string;
 }
 
-export default function DataBar({ onClose }: { onClose?: () => void }) {
+interface DataBarProps {
+  onClose?: () => void;
+  onSelectDrone?: (drone: { id: string; name: string } | null) => void;
+}
+
+export default function DataBar({ onClose, onSelectDrone }: DataBarProps) {
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
   const [drones, setDrones] = useState<DroneData[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,6 +87,8 @@ export default function DataBar({ onClose }: { onClose?: () => void }) {
         <input
           type="text"
           placeholder="Search Drone ID..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1 bg-transparent outline-none text-sm text-white placeholder-zinc-500"
         />
         <Search size={18} className="opacity-70" />
@@ -87,37 +96,50 @@ export default function DataBar({ onClose }: { onClose?: () => void }) {
 
       {/* Drone List */}
       <div className="space-y-3 overflow-y-auto flex-1">
-        {drones.map((d) => (
-          <div
-            key={d.id}
-            className="rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
-                <Drone size={34} />
+        {drones
+          .filter((d) => 
+            searchQuery === "" || 
+            d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            d.callsign.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((d) => (
+            <button
+              key={d.id}
+              onClick={() => {
+                console.log('Clicked drone:', d.id, d.callsign);
+                onSelectDrone?.({ id: d.id, name: d.callsign });
+              }}
+              className="w-full rounded-xl bg-zinc-800/80 border border-zinc-700 p-4 flex items-center justify-between hover:border-amber-400 hover:bg-zinc-800 transition cursor-pointer"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-zinc-700 bg-zinc-900/80">
+                  <Drone size={34} />
+                </div>
+                <div className="text-left">
+                  <div className="text-amber-400 font-extrabold">{d.callsign}</div>
+                  <div className="text-sm text-zinc-300">• {d.type}</div>
+                  <div className="text-xs text-zinc-500 mt-1">ID : {d.id}</div>
+                  <div className="text-xs text-zinc-400 mt-1">MGRS : {d.mgrs || '-'}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-amber-400 font-extrabold">{d.callsign}</div>
-                <div className="text-sm text-zinc-300">• {d.type}</div>
-                <div className="text-xs text-zinc-500 mt-1">ID : {d.id}</div>
-                <div className="text-xs text-zinc-400 mt-1">MGRS : {d.mgrs}</div>
+              <div className="text-right">
+                <div className="text-xs text-zinc-400">STATUS</div>
+                <div
+                  className={`font-semibold ${
+                    d.status === "HOSTILE" ? "text-red-400" : 
+                    d.status === "FRIEND" ? "text-green-400" : 
+                    "text-zinc-300"
+                  }`}
+                >
+                  • {d.status}
+                </div>
+                <div className="text-xs text-zinc-400 mt-1">SPEED</div>
+                <div className="text-zinc-100 font-medium">{d.speedKt.toFixed(2)} kt</div>
               </div>
-            </div>
-            <div className="text-right">
-              <div className="text-xs text-zinc-400">STATUS</div>
-              <div
-                className={`font-semibold ${
-                  d.status === "HOSTILE" ? "text-red-400" : "text-green-400"
-                }`}
-              >
-                • {d.status}
-              </div>
-              <div className="text-xs text-zinc-400 mt-1">SPEED</div>
-              <div className="text-zinc-100 font-medium">{d.speedKt.toFixed(2)} kt</div>
-            </div>
-          </div>
-        ))}
+            </button>
+          ))}
       </div>
+
     </aside>
   );
 }

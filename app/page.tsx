@@ -13,7 +13,6 @@ const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectS
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
-const BottomHUD = dynamic(() => import("@/app/components/dashboard/BottomHUD"), { ssr: false });
 
 
 export default function HomePage() {
@@ -299,16 +298,6 @@ export default function HomePage() {
 
         {/* ✅ แสดงจำนวนโดรนทั้งหมดและวงที่สร้าง */}
         <DroneCounter marksCount={marks.length} />
-
-        {/* ✅ Bottom-Center HUD */}
-        <BottomHUD
-          drones={drones}
-          selectedCamId={selectedCamId}
-          filter={filter}
-          onFilterChange={setFilter}
-          onZoomToFit={handleZoomToFit}
-          isLoading={isLoading}
-        />
 
         {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
         {isMarking && (
