@@ -186,7 +186,8 @@ const MapComponent = ({
       zoom: 17,
     });
 
-
+    // ✅ Expose map instance to window for MapCompass and other components
+    (window as any).mapboxInstance = map.current;
 
     // Bridge zoom events ให้เข้ากับ RightToolbar เดิม
     const m = map.current;
@@ -580,7 +581,7 @@ const MapComponent = ({
         drones={drones} 
         onDroneInZone={handleDroneInZone}
       />
-      <MapboxDroneMarkers map={map.current} onSelect={onSelectDrone} />
+      <MapboxDroneMarkers map={map.current} onSelect={onSelectDrone} followDrone={followDrone} />
     </Box>
   );
 };

@@ -86,6 +86,7 @@ export default function NotificationSidebar({
         {items.map((n) => {
           // ✅ แยกประเภทการแจ้งเตือน
           const isNewDrone = n.message?.includes("ตรวจพบโดรนใหม่");
+          const isDroneLost = n.message?.includes("โดรนหายจากแมพ");
           const isEnter = n.message?.includes("เข้า");
           const isExit = n.message?.includes("ออก");
           
@@ -97,6 +98,10 @@ export default function NotificationSidebar({
             eventType = "NEW DRONE";
             eventColor = "text-blue-400";
             badgeColor = "bg-blue-600";
+          } else if (isDroneLost) {
+            eventType = "DRONE LOST";
+            eventColor = "text-red-400";
+            badgeColor = "bg-red-600";
           } else if (isEnter) {
             eventType = "ENTER";
             eventColor = "text-green-400";

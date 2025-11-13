@@ -8,16 +8,21 @@ import { getDroneColorByAltitude } from "@/app/utils/mapUtils";
 interface MapboxDroneMarkersProps {
   map: mapboxgl.Map | null;
   onSelect?: (d: Drone) => void;
+  followDrone?: Drone | null;
 }
 
 const SOURCE_ID = 'drones-source';
 const LAYER_ID = 'drones-layer';
+const PULSE_SOURCE_ID = 'drone-pulse-source';
+const PULSE_LAYER_ID = 'drone-pulse-layer';
 
-export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkersProps) {
+export default function MapboxDroneMarkers({ map, onSelect, followDrone }: MapboxDroneMarkersProps) {
   const [drones, setDrones] = useState<Drone[]>([]);
   const dronesRef = useRef<Drone[]>([]);
   const onSelectRef = useRef(onSelect);
   const layersAddedRef = useRef(false);
+  const pulseLayersAddedRef = useRef<boolean>(false);
+  const animationFrameRef = useRef<number | undefined>(undefined);
 
   // Update onSelect ref
   useEffect(() => {
@@ -60,7 +65,35 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
       console.log('🔧 Initializing drone layers...');
 
       try {
-        // Add source
+        // ✅ Add pulse source and layers FIRST (so they appear below drone layer)
+        if (!map.getSource(PULSE_SOURCE_ID)) {
+          map.addSource(PULSE_SOURCE_ID, {
+            type: 'geojson',
+            data: {
+              type: 'FeatureCollection',
+              features: []
+            }
+          });
+        }
+
+        // Add pulse layers (3 concentric circles) - these will be below drone layer
+        for (let i = 1; i <= 3; i++) {
+          const layerId = `${PULSE_LAYER_ID}-${i}`;
+          if (!map.getLayer(layerId)) {
+            map.addLayer({
+              id: layerId,
+              type: 'circle',
+              source: PULSE_SOURCE_ID,
+              paint: {
+                'circle-radius': 0,
+                'circle-color': '#f59e0b', // amber-500
+                'circle-opacity': 0
+              }
+            });
+          }
+        }
+
+        // Add drone source
         if (!map.getSource(SOURCE_ID)) {
           map.addSource(SOURCE_ID, {
             type: 'geojson',
@@ -72,7 +105,7 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
           console.log('✅ Added source:', SOURCE_ID);
         }
 
-        // Add layer
+        // Add drone layer (this will be on top of pulse layers)
         if (!map.getLayer(LAYER_ID)) {
           map.addLayer({
             id: LAYER_ID,
@@ -254,12 +287,110 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
     }
   }, [map, drones]);
 
+  // Add pulsing wave effect for followed drone
+  useEffect(() => {
+    if (!map) return;
+
+    // ✅ ถ้าไม่มี followDrone ให้ซ่อนวงคลื่น
+    if (!followDrone || !followDrone.position) {
+      // Hide pulse layers
+      for (let i = 1; i <= 3; i++) {
+        const layerId = `${PULSE_LAYER_ID}-${i}`;
+        const layer = map.getLayer(layerId);
+        if (layer) {
+          map.setPaintProperty(layerId, 'circle-opacity', 0);
+        }
+      }
+      
+      // Clear pulse source data
+      const source = map.getSource(PULSE_SOURCE_ID) as mapboxgl.GeoJSONSource;
+      if (source) {
+        source.setData({
+          type: 'FeatureCollection',
+          features: []
+        });
+      }
+      
+      return;
+    }
+
+    // Animate pulse
+    let startTime = Date.now();
+    const duration = 2000; // 2 seconds per pulse
+    const maxRadius = 50;
+
+    const animate = () => {
+      // ✅ ดึงตำแหน่งล่าสุดของโดรนจาก dronesRef
+      const currentDrone = dronesRef.current.find(d => d.id === followDrone.id);
+      
+      const source = map.getSource(PULSE_SOURCE_ID) as mapboxgl.GeoJSONSource;
+      if (source && currentDrone && currentDrone.position) {
+        const elapsed = Date.now() - startTime;
+        const progress = (elapsed % duration) / duration;
+        
+        const [lat, lng] = currentDrone.position;
+        source.setData({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [lng, lat]
+            },
+            properties: {}
+          }]
+        });
+
+        // Animate 3 waves with different delays
+        for (let i = 1; i <= 3; i++) {
+          const layerId = `${PULSE_LAYER_ID}-${i}`;
+          const layer = map.getLayer(layerId);
+          if (layer) {
+            const delay = (i - 1) * 0.33; // Stagger waves
+            const waveProgress = (progress + delay) % 1;
+            const radius = waveProgress * maxRadius;
+            const opacity = Math.max(0, 0.6 * (1 - waveProgress));
+
+            map.setPaintProperty(layerId, 'circle-radius', radius);
+            map.setPaintProperty(layerId, 'circle-opacity', opacity);
+          }
+        }
+      }
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animate();
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [map, followDrone]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (!map) return;
       
-      // Remove layer and source
+      // Cancel animation
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      // Remove pulse layers
+      for (let i = 1; i <= 3; i++) {
+        const layerId = `${PULSE_LAYER_ID}-${i}`;
+        if (map.getLayer(layerId)) {
+          map.removeLayer(layerId);
+        }
+      }
+      if (map.getSource(PULSE_SOURCE_ID)) {
+        map.removeSource(PULSE_SOURCE_ID);
+      }
+      
+      // Remove drone layers
       if (map.getLayer(LAYER_ID)) {
         map.removeLayer(LAYER_ID);
       }
@@ -268,6 +399,7 @@ export default function MapboxDroneMarkers({ map, onSelect }: MapboxDroneMarkers
       }
       
       layersAddedRef.current = false;
+      pulseLayersAddedRef.current = false;
       console.log('🧹 Cleaned up drone layers');
     };
   }, [map]);

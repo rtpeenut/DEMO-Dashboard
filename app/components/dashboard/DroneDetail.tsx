@@ -16,12 +16,14 @@ interface DroneDetailProps {
     mgrs?: string;
     position?: [number, number];
     imageUrl?: string;
-    idCamera?: string; // ✅ รอรับจาก API
-    size?: string; // ✅ รอรับจาก API
+    idCamera?: string;
+    camId?: string;
+    size?: string;
+    alt?: number;
   };
   onClose?: () => void;
   onFollow?: (drone: any, isFollowing: boolean) => void;
-  isFollowing?: boolean; // ✅ รับจาก parent
+  isFollowing?: boolean;
 }
 
 export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: DroneDetailProps) {
@@ -188,11 +190,18 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing }: D
           <div className="grid grid-cols-3 gap-3">
             <div>
               <div className="text-[13px] text-zinc-400">ID:</div>
-              <div className="font-mono text-sm text-zinc-200">{droneData.id}</div>
+              <div className="font-mono text-sm text-zinc-200">{droneData.id.substring(0, 6)}</div>
             </div>
             <div>
-              <div className="text-[13px] text-zinc-400">IDCamera:</div>
-              <div className="font-mono text-sm text-zinc-200">{droneData.idCamera || "—"}</div>
+              <div className="text-[13px] text-zinc-400">CAM ID:</div>
+              <div className="font-mono text-sm text-zinc-200">
+                {droneData.idCamera 
+                  ? droneData.idCamera.substring(0, 6) 
+                  : (droneData as any).camId 
+                    ? (droneData as any).camId.substring(0, 6)
+                    : "—"}
+                    ..
+              </div>
             </div>
             <div>
               <div className="text-[13px] text-zinc-400">Size:</div>

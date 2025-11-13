@@ -11,8 +11,11 @@ const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
 const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectSidebar"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
+const NotificationPanel = dynamic(() => import("@/app/components/dashboard/NotificationPanel"), { ssr: false });
+const CameraSidebar = dynamic(() => import("@/app/components/dashboard/CameraSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
+const DroneHistoryPanel = dynamic(() => import("@/app/components/dashboard/DroneHistoryPanel"), { ssr: false });
 
 
 export default function HomePage() {
@@ -20,13 +23,16 @@ export default function HomePage() {
     id: string;
     callsign: string;
     type: string;
+    status: "FRIEND" | "HOSTILE" | "UNKNOWN";
     speedKt: number;
     altitudeFt: number;
     headingDeg: number;
     lastUpdate?: string;
     mgrs?: string;
-    position?: [number, number];
+    position: [number, number];
     imageUrl?: string;
+    camId?: string;
+    alt?: number;
   };
   
   type Mark = {
@@ -41,6 +47,7 @@ export default function HomePage() {
   // state
   const [openHome, setOpenHome] = useState(false);
   const [openData, setOpenData] = useState(false);
+  const [openCamera, setOpenCamera] = useState(false);
   const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
   const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
@@ -50,10 +57,46 @@ export default function HomePage() {
   const [marks, setMarks] = useState<Mark[]>([]);
   const [isMarking, setIsMarking] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
+  const [popupNotifications, setPopupNotifications] = useState<any[]>([]); // ✅ เก็บการแจ้งเตือนแบบ popup
   const [drones, setDrones] = useState<Drone[]>([]); // ✅ เก็บ drones สำหรับ HUD และ Sidebar
   const [filter, setFilter] = useState<'ALL' | 'FRIEND' | 'HOSTILE' | 'UNKNOWN'>('ALL');
   const [selectedCamId, setSelectedCamId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedDroneHistory, setSelectedDroneHistory] = useState<{ id: string; name: string } | null>(null);
+  const [toolbarHeight, setToolbarHeight] = useState<number>(0);
+  const [mapInstance, setMapInstance] = useState<any>(null);
+
+  // Get map instance from window
+  useEffect(() => {
+    const checkMap = setInterval(() => {
+      if ((window as any).mapboxInstance) {
+        setMapInstance((window as any).mapboxInstance);
+        clearInterval(checkMap);
+      }
+    }, 100);
+
+    return () => clearInterval(checkMap);
+  }, []);
+
+  // Calculate toolbar height
+  useEffect(() => {
+    const updateToolbarHeight = () => {
+      const toolbar = document.querySelector('#right-toolbar');
+      if (toolbar) {
+        const { height } = toolbar.getBoundingClientRect();
+        setToolbarHeight(height);
+      }
+    };
+
+    updateToolbarHeight();
+    const timer = setTimeout(updateToolbarHeight, 100);
+    window.addEventListener('resize', updateToolbarHeight);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateToolbarHeight);
+    };
+  }, []);
 
   // ✅ Load marks from API on initial render
   useEffect(() => {
@@ -62,7 +105,6 @@ export default function HomePage() {
         const response = await fetch("/api/marks", { cache: "no-store" });
         if (!response.ok) throw new Error("Failed to load marks");
         const data = await response.json();
-        // Map API response to component state format (exclude createdAt if not needed in UI)
         setMarks(data.map((m: any) => ({
           id: m.id,
           name: m.name,
@@ -128,6 +170,7 @@ export default function HomePage() {
   useEffect(() => {
     if (openHome) {
       setOpenData(false);
+      setOpenCamera(false);
       setOpenNotif(false);
       setShowProtect(false);
       setOpenSettings(false);
@@ -136,15 +179,26 @@ export default function HomePage() {
   useEffect(() => {
     if (openData) {
       setOpenHome(false);
+      setOpenCamera(false);
       setOpenNotif(false);
       setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openData]);
   useEffect(() => {
+    if (openCamera) {
+      setOpenHome(false);
+      setOpenData(false);
+      setOpenNotif(false);
+      setShowProtect(false);
+      setOpenSettings(false);
+    }
+  }, [openCamera]);
+  useEffect(() => {
     if (openNotif) {
       setOpenHome(false);
       setOpenData(false);
+      setOpenCamera(false);
       setShowProtect(false);
       setOpenSettings(false);
     }
@@ -153,6 +207,7 @@ export default function HomePage() {
     if (showProtect) {
       setOpenHome(false);
       setOpenData(false);
+      setOpenCamera(false);
       setOpenNotif(false);
       setOpenSettings(false);
     }
@@ -161,6 +216,7 @@ export default function HomePage() {
     if (openSettings) {
       setOpenHome(false);
       setOpenData(false);
+      setOpenCamera(false);
       setOpenNotif(false);
       setShowProtect(false);
     }
@@ -262,7 +318,31 @@ export default function HomePage() {
             onFilterChange={setFilter}
           />
         )}
-        {openData && <Databar onClose={() => setOpenData(false)} />}
+        {openData && (
+          <Databar 
+            onClose={() => setOpenData(false)} 
+            onSelectDrone={(drone) => {
+              console.log('Selected drone for history:', drone);
+              setSelectedDroneHistory(drone);
+            }}
+          />
+        )}
+        {selectedDroneHistory && (
+          <>
+            {console.log('Rendering DroneHistoryPanel:', selectedDroneHistory)}
+            <DroneHistoryPanel
+              droneId={selectedDroneHistory.id}
+              droneName={selectedDroneHistory.name}
+              toolbarHeight={toolbarHeight}
+              onClose={() => setSelectedDroneHistory(null)}
+            />
+          </>
+        )}
+        {openCamera && (
+          <CameraSidebar
+            onClose={() => setOpenCamera(false)}
+          />
+        )}
         {openNotif && (
           <NotificationSidebar
             notifications={notifications}
@@ -280,13 +360,20 @@ export default function HomePage() {
         <RightToolbar
           onHomeClick={() => {
             setOpenData(false);
+            setOpenCamera(false);
             setOpenHome((v) => !v);
           }}
           onDataClick={() => {
             setOpenHome(false);
+            setOpenCamera(false);
             setOpenData((v) => !v);
           }}
-          onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
+          onCameraClick={() => {
+            setOpenHome(false);
+            setOpenData(false);
+            setOpenCamera((v) => !v);
+          }}
+          onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenCamera(false); setOpenNotif((v)=>!v); }}
           onProtectClick={() => setShowProtect(!showProtect)}
           onSettingsClick={() => setOpenSettings((v) => !v)}
           on3DToggle={() => {
@@ -297,7 +384,28 @@ export default function HomePage() {
         />
 
         {/* ✅ แสดงจำนวนโดรนทั้งหมดและวงที่สร้าง */}
-        <DroneCounter marksCount={marks.length} />
+        <DroneCounter 
+          marksCount={marks.length}
+          map={mapInstance}
+          onNewDroneDetected={(notif) => {
+            // ✅ เพิ่มการแจ้งเตือนโดรนใหม่เข้าไปในรายการประวัติ (ใส่ไว้หัว array)
+            setNotifications((prev) => [notif, ...prev]);
+            // ✅ เพิ่มการแจ้งเตือนแบบ popup (ใส่ไว้หัว array)
+            setPopupNotifications((prev) => [notif, ...prev]);
+          }}
+          onDroneLost={(notif) => {
+            // ✅ เพิ่มการแจ้งเตือนโดรนหายไปเข้าไปในรายการประวัติ (ใส่ไว้หัว array)
+            setNotifications((prev) => [notif, ...prev]);
+            // ✅ เพิ่มการแจ้งเตือนแบบ popup (ใส่ไว้หัว array)
+            setPopupNotifications((prev) => [notif, ...prev]);
+          }}
+        />
+        
+        {/* ✅ Popup แจ้งเตือนโดรนใหม่ */}
+        <NotificationPanel 
+          notifications={popupNotifications}
+          setNotifications={setPopupNotifications}
+        />
 
         {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
         {isMarking && (

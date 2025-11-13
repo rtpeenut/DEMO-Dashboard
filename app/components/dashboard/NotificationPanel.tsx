@@ -35,7 +35,7 @@ export default function NotificationPanel({
     if (notifications.length === 0) return;
     const timer = setTimeout(() => {
       setNotifications((prev) => prev.slice(1));
-    }, 8000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [notifications, setNotifications]);
 
