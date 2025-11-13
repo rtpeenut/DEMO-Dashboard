@@ -2,6 +2,9 @@
 
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
+import MapboxDroneMarkers from './MapboxDroneMarkers';
+import MapboxMarkZones from './MapboxMarkZones';
+import MapboxFollowDrone from './MapboxFollowDrone';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
@@ -66,6 +69,23 @@ export default function MapboxSecondaryMap({
   return (
     <div className="relative w-full h-full bg-zinc-900">
       <div ref={mapContainer} className="w-full h-full" />
+      
+      {/* ✅ Drone markers */}
+      <MapboxDroneMarkers 
+        map={map.current} 
+        drones={drones}
+        onSelect={() => {}} 
+        followDrone={followDrone} 
+      />
+      
+      {/* ✅ Mark zones */}
+      <MapboxMarkZones map={map.current} marks={marks} />
+      
+      {/* ✅ Follow drone */}
+      <MapboxFollowDrone 
+        map={map.current} 
+        followDrone={followDrone ? drones.find(d => d.id === followDrone.id) || followDrone : null} 
+      />
     </div>
   );
 }
