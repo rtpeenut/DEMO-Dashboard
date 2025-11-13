@@ -90,25 +90,38 @@ export interface CameraInfo {
   institute: string;
 }
 
-// ✅ Frame Interface
+// ✅ Frame Interface - รองรับทั้ง format เก่าและใหม่
 export interface Frame {
-  fram_id: string;
-  cam_id: string;
-  token_id: {
+  fram_id?: string;
+  frame_id?: number; // ✅ New format
+  cam_id?: string;
+  source_id?: string; // ✅ New format
+  kind?: string; // ✅ "frame" or "frame_meta"
+  token_id?: {
     camera_info: CameraInfo;
   };
   timestamp: string;
-  image_info: {
+  image_info?: {
+    mime?: string; // ✅ New format
     width: number;
     height: number;
+    quality?: number; // ✅ New format
   };
   objects: Array<{
-    obj_id: string;
+    obj_id?: string;
+    drone_id?: string; // ✅ New format
     type: string | null;
     lat: number;
-    lng: number;
-    alt: number;
-    speed_kt: number;
+    lng?: number;
+    lon?: number; // ✅ New format uses "lon"
+    alt?: number;
+    alt_m?: number; // ✅ New format
+    speed_kt?: number;
+    speed_mps?: number; // ✅ New format
+    speed_m_s?: number; // ✅ New format
+    bbox?: number[]; // ✅ New format
+    confidence?: number; // ✅ New format
+    timestamp?: string; // ✅ New format
   }>;
 }
 
@@ -293,18 +306,23 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
         return;
       }
       
-      // ✅ รองรับทั้งรูปแบบเก่า (type: "drone") และรูปแบบใหม่ (frame with objects array)
+      // ✅ รองรับทั้งรูปแบบเก่า (type: "drone") และรูปแบบใหม่ (kind: "frame" หรือ "frame_meta")
       let objects: any[] = [];
       
       if (data.type === "drone") {
         // รูปแบบเก่า: single drone object
         objects = [data];
-      } else if (data.objects && Array.isArray(data.objects)) {
-        // รูปแบบใหม่: frame object with objects array (format from backend)
-        // Format: { fram_id, cam_id, token_id, timestamp, image_info, objects: [...] }
+      } else if ((data.kind === "frame" || data.kind === "frame_meta") && data.objects && Array.isArray(data.objects)) {
+        // รูปแบบใหม่: frame_meta with objects array
+        // Format: { kind, frame_id, source_id, timestamp, image_info, objects: [...] }
+        const camId = data.source_id || data.cam_id || "unknown";
+        
         const frame: Frame = {
-          fram_id: data.fram_id,
-          cam_id: data.cam_id,
+          kind: data.kind,
+          frame_id: data.frame_id,
+          fram_id: data.fram_id || data.frame_id?.toString(),
+          cam_id: camId,
+          source_id: data.source_id,
           token_id: data.token_id,
           timestamp: data.timestamp || new Date().toISOString(),
           image_info: data.image_info,
@@ -312,13 +330,38 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
         };
         
         // ✅ เก็บ frame ตาม cam_id
-        frameStore.set(frame.cam_id, frame);
+        frameStore.set(camId, frame);
         
         const frameTimestamp = frame.timestamp;
         objects = frame.objects.map((obj: any) => ({
           ...obj,
           timestamp: frameTimestamp,
-          cam_id: frame.cam_id, // เพิ่ม cam_id ให้แต่ละ object
+          cam_id: camId, // เพิ่ม cam_id ให้แต่ละ object
+        }));
+      } else if (data.objects && Array.isArray(data.objects)) {
+        // รูปแบบเก่า: frame object with objects array (backward compatibility)
+        // Format: { fram_id, cam_id, token_id, timestamp, image_info, objects: [...] }
+        const camId = data.cam_id || data.source_id || "unknown";
+        
+        const frame: Frame = {
+          fram_id: data.fram_id,
+          frame_id: data.frame_id,
+          cam_id: camId,
+          source_id: data.source_id,
+          token_id: data.token_id,
+          timestamp: data.timestamp || new Date().toISOString(),
+          image_info: data.image_info,
+          objects: data.objects,
+        };
+        
+        // ✅ เก็บ frame ตาม cam_id
+        frameStore.set(camId, frame);
+        
+        const frameTimestamp = frame.timestamp;
+        objects = frame.objects.map((obj: any) => ({
+          ...obj,
+          timestamp: frameTimestamp,
+          cam_id: camId, // เพิ่ม cam_id ให้แต่ละ object
         }));
       } else {
         // ไม่ใช่รูปแบบที่รองรับ

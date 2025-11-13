@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Camera, X } from 'lucide-react';
-import { getAllFrames } from '@/app/libs/MapData';
 import type { Frame } from '@/app/libs/MapData';
 
 interface CameraSidebarProps {
@@ -23,18 +22,27 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
     }
   }, []);
 
-  // ✅ ดึงข้อมูล frames ทั้งหมด
+  // ✅ ดึงข้อมูล frames จาก API
   useEffect(() => {
-    const updateFrames = () => {
-      const allFrames = getAllFrames();
-      setFrames(allFrames);
+    const fetchFrames = async () => {
+      try {
+        const res = await fetch('/api/frames', { cache: 'no-store' });
+        if (!res.ok) {
+          console.error('Failed to fetch frames:', res.status);
+          return;
+        }
+        const data = await res.json();
+        setFrames(data);
+      } catch (error) {
+        console.error('Error fetching frames:', error);
+      }
     };
 
     // Initial load
-    updateFrames();
+    fetchFrames();
 
     // Update every 1 second to get latest frames
-    const interval = setInterval(updateFrames, 1000);
+    const interval = setInterval(fetchFrames, 1000);
 
     return () => clearInterval(interval);
   }, []);
