@@ -7,6 +7,7 @@ import { getDroneColorByAltitude } from "@/app/utils/mapUtils";
 
 interface MapboxDroneMarkersProps {
   map: mapboxgl.Map | null;
+  drones: Drone[]; // ✅ รับข้อมูลจาก props แทนการ subscribe เอง
   onSelect?: (d: Drone) => void;
   followDrone?: Drone | null;
 }
@@ -24,30 +25,11 @@ export default function MapboxDroneMarkers({ map, onSelect, followDrone }: Mapbo
   const pulseLayersAddedRef = useRef<boolean>(false);
   const animationFrameRef = useRef<number | undefined>(undefined);
 
-  // Update onSelect ref
+  // Update refs
   useEffect(() => {
+    dronesRef.current = drones;
     onSelectRef.current = onSelect;
-  }, [onSelect]);
-
-  // Subscribe to drones
-  useEffect(() => {
-    console.log('🔌 Subscribing to drones...');
-    const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === "api";
-    const stop = (useApi ? subscribeDronesApi : subscribeDrones)((list) => {
-      if (Array.isArray(list)) {
-        console.log('📡 Received drones update:', list.length, 'drones');
-        dronesRef.current = list;
-        setDrones(list);
-      } else {
-        console.warn("⚠️ Invalid drones data:", list);
-      }
-    });
-    
-    return () => {
-      console.log('🔌 Unsubscribing from drones');
-      stop();
-    };
-  }, []);
+  }, [drones, onSelect]);
 
   // Initialize source and layer
   useEffect(() => {
@@ -251,11 +233,20 @@ export default function MapboxDroneMarkers({ map, onSelect, followDrone }: Mapbo
     }
 
     // Convert drones to GeoJSON features
+    console.log('🔍 Processing drones:', drones.length, 'total');
     const features = drones
-      .filter(drone => drone.position && drone.position.length >= 2)
+      .filter(drone => {
+        const hasPosition = drone.position && Array.isArray(drone.position) && drone.position.length >= 2;
+        if (!hasPosition) {
+          console.warn('⚠️ Drone missing position:', drone.id, drone.position);
+        }
+        return hasPosition;
+      })
       .map(drone => {
         const [lat, lng] = drone.position;
         const color = getDroneColorByAltitude(drone.altitudeFt);
+        
+        console.log('✅ Creating marker for:', drone.id, 'at', [lng, lat]);
         
         return {
           type: 'Feature' as const,
@@ -265,12 +256,12 @@ export default function MapboxDroneMarkers({ map, onSelect, followDrone }: Mapbo
           },
           properties: {
             id: drone.id,
-            obj_id: drone.id, // ✅ สำหรับ tooltip
+            obj_id: drone.id,
             callsign: drone.callsign,
             altitude: drone.altitudeFt,
-            alt: drone.alt || drone.altitudeFt / 3.28084, // ✅ เก็บค่าเมตร
+            alt: drone.alt || drone.altitudeFt / 3.28084,
             speed: drone.speedKt,
-            speed_kt: drone.speedKt, // ✅ สำหรับ tooltip
+            speed_kt: drone.speedKt,
             color: color
           }
         };
@@ -281,9 +272,11 @@ export default function MapboxDroneMarkers({ map, onSelect, followDrone }: Mapbo
       features: features
     });
 
-    console.log('📍 Updated drone positions:', features.length, 'drones');
+    console.log('📍 Updated drone positions:', features.length, 'drones visible on map');
     if (features.length > 0) {
       console.log('📍 Sample drone:', features[0].properties.callsign, 'at', features[0].geometry.coordinates);
+    } else {
+      console.warn('⚠️ No drones to display on map!');
     }
   }, [map, drones]);
 

@@ -2,7 +2,10 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { Drone, Shield, Swords, HelpCircle, MapPin, Navigation } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Drone, Shield, Swords, HelpCircle, MapPin, Bell } from 'lucide-react';
 import { subscribeDrones, subscribeDronesApi } from '@/app/libs/MapData';
+import type { Drone as DroneType } from '@/app/libs/MapData';
 import type { Drone as DroneType } from '@/app/libs/MapData';
 
 interface DroneStats {
@@ -30,8 +33,23 @@ interface DroneCounterProps {
     time: string;
   }) => void;
 }
+  onNewDroneDetected?: (notification: {
+    id: string;
+    message: string;
+    zoneName: string;
+    drone: DroneType;
+    time: string;
+  }) => void;
+}
+
+interface Notification {
+  id: string;
+  drone: DroneType;
+  timestamp: number;
+}
 
 export default function DroneCounter({ marksCount = 0, map, onNewDroneDetected, onDroneLost }: DroneCounterProps) {
+export default function DroneCounter({ marksCount = 0, onNewDroneDetected }: DroneCounterProps) {
   const [stats, setStats] = useState<DroneStats>({
     total: 0,
     friend: 0,
@@ -67,6 +85,8 @@ export default function DroneCounter({ marksCount = 0, map, onNewDroneDetected, 
       missingDroneTimers.current.clear();
     };
   }, []);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const knownDroneIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const useApi = process.env.NEXT_PUBLIC_DATA_SOURCE === 'api';
@@ -155,6 +175,44 @@ export default function DroneCounter({ marksCount = 0, map, onNewDroneDetected, 
                 missingDroneTimers.current.set(droneId, timer);
               }
             }
+          }
+        });
+
+        // ✅ ตรวจจับโดรนใหม่
+        list.forEach((drone: DroneType) => {
+          if (!knownDroneIds.current.has(drone.id)) {
+            knownDroneIds.current.add(drone.id);
+            
+            const timestamp = Date.now();
+            const timeString = new Date(timestamp).toLocaleTimeString('th-TH', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+            
+            // ✅ เพิ่มการแจ้งเตือนแบบ popup
+            const notification: Notification = {
+              id: `notif-${drone.id}-${timestamp}`,
+              drone,
+              timestamp,
+            };
+            
+            setNotifications((prev) => [...prev, notification]);
+            
+            // ✅ ส่งข้อมูลไปยัง parent เพื่อเก็บใน NotificationSidebar
+            if (onNewDroneDetected) {
+              onNewDroneDetected({
+                id: `drone-detected-${drone.id}-${timestamp}`,
+                message: 'ตรวจพบโดรนใหม่',
+                zoneName: '', // ไม่มี zone สำหรับการตรวจพบโดรนใหม่
+                drone: drone,
+                time: timeString,
+              });
+            }
+            
+            // ✅ ลบการแจ้งเตือน popup หลัง 5 วินาที
+            setTimeout(() => {
+              setNotifications((prev) => prev.filter((n) => n.id !== notification.id));
+            }, 5000);
           }
         });
       }

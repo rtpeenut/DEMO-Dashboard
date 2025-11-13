@@ -142,6 +142,12 @@ export default function NotificationSidebar({
                       <span className={`text-[11px] ${eventColor}`}>
                         {n.drone.status}
                       </span>
+                      <span className={`${badgeColor} px-2 py-[2px] rounded-md text-[11px] font-semibold text-white`}>
+                        {eventType}
+                      </span>
+                      <span className={`text-[11px] ${eventColor}`}>
+                        {n.drone.status}
+                      </span>
                     </div>
                     <div className="text-sm text-zinc-100 leading-snug">
                       {n.message} {n.zoneName ? `(${n.zoneName})` : ''}

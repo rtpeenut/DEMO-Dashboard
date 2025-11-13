@@ -9,7 +9,8 @@ const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolb
 const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
-const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectSidebar"), { ssr: false });
+const DroneHistoryPanel = dynamic(() => import("@/app/components/dashboard/DroneHistoryPanel"), { ssr: false });
+const MapCompass = dynamic(() => import("@/app/components/dashboard/MapCompass"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/app/components/dashboard/NotificationPanel"), { ssr: false });
 const CameraSidebar = dynamic(() => import("@/app/components/dashboard/CameraSidebar"), { ssr: false });
@@ -24,11 +25,13 @@ export default function HomePage() {
     callsign: string;
     type: string;
     status: "FRIEND" | "HOSTILE" | "UNKNOWN";
+    status: "FRIEND" | "HOSTILE" | "UNKNOWN";
     speedKt: number;
     altitudeFt: number;
     headingDeg: number;
     lastUpdate?: string;
     mgrs?: string;
+    position: [number, number];
     position: [number, number];
     imageUrl?: string;
     camId?: string;
@@ -42,7 +45,7 @@ export default function HomePage() {
     pos: [number, number];
     radius: number;
   };
-
+  
   
   // state
   const [openHome, setOpenHome] = useState(false);
@@ -51,12 +54,51 @@ export default function HomePage() {
   const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
   const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
+  const [selectedDroneHistory, setSelectedDroneHistory] = useState<{ id: string; name: string } | null>(null);
+  const [toolbarHeight, setToolbarHeight] = useState<number>(0);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
+  const [mapInstance, setMapInstance] = useState<any>(null);
+
+  // Get map instance from window
+  useEffect(() => {
+    const checkMap = setInterval(() => {
+      if ((window as any).mapboxInstance) {
+        setMapInstance((window as any).mapboxInstance);
+        clearInterval(checkMap);
+      }
+    }, 100);
+
+    return () => clearInterval(checkMap);
+  }, []);
+
+  // Calculate toolbar height
+  useEffect(() => {
+    const updateToolbarHeight = () => {
+      const toolbar = document.querySelector('#right-toolbar');
+      if (toolbar) {
+        const { height } = toolbar.getBoundingClientRect();
+        setToolbarHeight(height);
+      }
+    };
+
+    // Initial calculation
+    updateToolbarHeight();
+
+    // Re-calculate after a short delay to ensure RightToolbar is rendered
+    const timer = setTimeout(updateToolbarHeight, 100);
+
+    // Re-calculate on window resize
+    window.addEventListener('resize', updateToolbarHeight);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateToolbarHeight);
+    };
+  }, []);
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
-  const [showProtect, setShowProtect] = useState(false);
-  const [marks, setMarks] = useState<Mark[]>([]);
-  const [isMarking, setIsMarking] = useState(false);
+
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
+  const [popupNotifications, setPopupNotifications] = useState<any[]>([]); // ✅ เก็บการแจ้งเตือนแบบ popup
   const [popupNotifications, setPopupNotifications] = useState<any[]>([]); // ✅ เก็บการแจ้งเตือนแบบ popup
   const [drones, setDrones] = useState<Drone[]>([]); // ✅ เก็บ drones สำหรับ HUD และ Sidebar
   const [filter, setFilter] = useState<'ALL' | 'FRIEND' | 'HOSTILE' | 'UNKNOWN'>('ALL');
@@ -172,7 +214,6 @@ export default function HomePage() {
       setOpenData(false);
       setOpenCamera(false);
       setOpenNotif(false);
-      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openHome]);
@@ -218,7 +259,6 @@ export default function HomePage() {
       setOpenData(false);
       setOpenCamera(false);
       setOpenNotif(false);
-      setShowProtect(false);
     }
   }, [openSettings]);
 
@@ -292,11 +332,11 @@ export default function HomePage() {
           selectedDrone={selectedDrone}
           onSelectDrone={(drone: any) => setSelectedDrone(drone)}
           followDrone={followDrone}
-          marks={marks}
-          setMarks={setMarks}
-          onAddMark={handleAddMark}
-          isMarking={isMarking}
-          onFinishMark={() => setIsMarking(false)}
+          marks={[]}
+          setMarks={() => {}}
+          onAddMark={async () => {}}
+          isMarking={false}
+          onFinishMark={() => {}}
           notifications={notifications}
           setNotifications={setNotifications}
           mapStyle={mapStyle}
@@ -429,17 +469,7 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* ✅ ใช้ Mapbox เต็มรูปแบบแล้ว - ไม่ต้องใช้ Leaflet อีกต่อไป */}
 
-      {showProtect && (
-        <ProtectSidebar
-          zones={marks}
-          onAddZone={() => setIsMarking(true)}
-          onDeleteZone={handleDeleteMark}
-          onClose={() => setShowProtect(false)}
-          isMarking={isMarking}
-        />
-      )}
     </main>
   );
 }
