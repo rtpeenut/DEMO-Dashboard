@@ -9,9 +9,10 @@ const RightToolbar = dynamic(() => import("@/app/components/dashboard/RightToolb
 const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar"), { ssr: false });
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
-const MarkSidebar = dynamic(() => import("@/app/components/dashboard/MarkSidebar"), { ssr: false });
+const ProtectSidebar = dynamic(() => import("@/app/components/dashboard/ProtectSidebar"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
+const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
 
 
 export default function HomePage() {
@@ -35,6 +36,7 @@ export default function HomePage() {
     pos: [number, number];
     radius: number;
   };
+
   
   // state
   const [openHome, setOpenHome] = useState(false);
@@ -42,9 +44,9 @@ export default function HomePage() {
   const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
   const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
-  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/satellite-streets-v12');
+  const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
-  const [showMark, setShowMark] = useState(false);
+  const [showProtect, setShowProtect] = useState(false);
   const [marks, setMarks] = useState<Mark[]>([]);
   const [isMarking, setIsMarking] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
@@ -110,6 +112,7 @@ export default function HomePage() {
   };
 
 
+
   useEffect(() => {
     // ถ้ามีการ follow อยู่ แต่ไปดู detail ของ drone อื่น
     if (followDrone?.id && selectedDrone?.id && followDrone.id !== selectedDrone.id) {
@@ -122,7 +125,7 @@ export default function HomePage() {
     if (openHome) {
       setOpenData(false);
       setOpenNotif(false);
-      setShowMark(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openHome]);
@@ -130,7 +133,7 @@ export default function HomePage() {
     if (openData) {
       setOpenHome(false);
       setOpenNotif(false);
-      setShowMark(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openData]);
@@ -138,24 +141,24 @@ export default function HomePage() {
     if (openNotif) {
       setOpenHome(false);
       setOpenData(false);
-      setShowMark(false);
+      setShowProtect(false);
       setOpenSettings(false);
     }
   }, [openNotif]);
   useEffect(() => {
-    if (showMark) {
+    if (showProtect) {
       setOpenHome(false);
       setOpenData(false);
       setOpenNotif(false);
       setOpenSettings(false);
     }
-  }, [showMark]);
+  }, [showProtect]);
   useEffect(() => {
     if (openSettings) {
       setOpenHome(false);
       setOpenData(false);
       setOpenNotif(false);
-      setShowMark(false);
+      setShowProtect(false);
     }
   }, [openSettings]);
 
@@ -237,7 +240,7 @@ export default function HomePage() {
             setOpenData((v) => !v);
           }}
           onNotifClick={() => { setOpenHome(false); setOpenData(false); setOpenNotif((v)=>!v); }}
-          onMarkClick={() => setShowMark(!showMark)}
+          onProtectClick={() => setShowProtect(!showProtect)}
           onSettingsClick={() => setOpenSettings((v) => !v)}
           on3DToggle={() => {
             if ((window as any).mapbox3DToggle) {
@@ -246,6 +249,19 @@ export default function HomePage() {
           }}
         />
 
+        {/* ✅ แสดงจำนวนโดรนทั้งหมดและวงที่สร้าง */}
+        <DroneCounter marksCount={marks.length} />
+
+        {/* ✅ แจ้งเตือนเมื่อกำลังสร้างวงรัศมี */}
+        {isMarking && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1300]">
+            <div className="flex items-center gap-2 rounded-xl px-4 py-2 ui-card bg-amber-500/90 border border-amber-400">
+              <span className="text-amber-400 font-semibold text-sm">
+                กรุณาเลือกจุดที่จะสร้างรัศมีป้องกัน
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* ✅ กล่องรายละเอียดโดรน */}
         {selectedDrone && (
@@ -260,13 +276,13 @@ export default function HomePage() {
 
       {/* ✅ ใช้ Mapbox เต็มรูปแบบแล้ว - ไม่ต้องใช้ Leaflet อีกต่อไป */}
 
-
-      {showMark && (
-        <MarkSidebar
-          marks={marks}
-          onDeleteMark={handleDeleteMark}
-          onAddMark={() => setIsMarking(true)}
-          onClose={() => setShowMark(false)}
+      {showProtect && (
+        <ProtectSidebar
+          zones={marks}
+          onAddZone={() => setIsMarking(true)}
+          onDeleteZone={handleDeleteMark}
+          onClose={() => setShowProtect(false)}
+          isMarking={isMarking}
         />
       )}
     </main>

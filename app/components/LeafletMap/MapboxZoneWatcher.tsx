@@ -14,20 +14,18 @@ interface Mark {
 interface MapboxZoneWatcherProps {
   marks?: Mark[];
   drones: Drone[];
-  isFollowing: boolean;
   onDroneInZone?: (drone: Drone, mark: Mark, event: "enter" | "exit") => void;
 }
 
 export default function MapboxZoneWatcher({
   marks,
   drones,
-  isFollowing,
   onDroneInZone,
 }: MapboxZoneWatcherProps) {
   const inZoneRef = useRef<Map<string, boolean>>(new Map());
 
   useEffect(() => {
-    if (!marks || !drones || !isFollowing) return;
+    if (!marks || !drones) return;
 
     marks.forEach((mark) => {
       if (!mark?.pos || mark.pos.length !== 2) return;
@@ -63,7 +61,7 @@ export default function MapboxZoneWatcher({
         }
       });
     });
-  }, [marks, drones, isFollowing, onDroneInZone]);
+  }, [marks, drones, onDroneInZone]);
 
   return null;
 }
