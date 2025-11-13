@@ -293,10 +293,10 @@ export default function HomePage() {
 
   return (
     <main className="h-screen w-screen overflow-hidden">
-      <div className="relative h-full w-full flex">
+      <div className={`relative h-full w-full flex ${splitScreen ? 'gap-2 p-2' : ''}`}>
         {/* ✅ แผนที่ฝั่งซ้าย (โดรนฝั่งเรา) */}
         {splitScreen && (
-          <div className="relative w-[25%] rounded-r-3xl overflow-hidden shadow-2xl">
+          <div className="relative w-[25%] rounded-2xl overflow-hidden shadow-2xl">
             <MapboxSecondaryMap 
               mapStyle={mapStyle} 
               followDrone={secondaryFollowDrone}
@@ -307,7 +307,7 @@ export default function HomePage() {
         )}
 
         {/* ✅ แผนที่หลัก */}
-        <div className={`relative transition-all duration-300 ${splitScreen ? 'w-[75%]' : 'w-full'} ${splitScreen ? 'rounded-l-3xl overflow-hidden shadow-2xl' : ''}`}>
+        <div className={`relative transition-all duration-300 ${splitScreen ? 'w-[calc(75%-0.5rem)] rounded-2xl overflow-hidden shadow-2xl' : 'w-full'}`}>
           <MapboxComponent
           objects={mapboxObjects}
           imagePath={undefined}

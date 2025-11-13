@@ -364,35 +364,41 @@ export default function MapboxDroneMarkers({ map, drones, onSelect, followDrone 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (!map) return;
+      // ✅ เช็คว่า map มีอยู่และยังไม่ถูก destroy
+      if (!map || !map.getStyle()) return;
       
-      // Cancel animation
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      // Remove pulse layers
-      for (let i = 1; i <= 3; i++) {
-        const layerId = `${PULSE_LAYER_ID}-${i}`;
-        if (map.getLayer(layerId)) {
-          map.removeLayer(layerId);
+      try {
+        // Cancel animation
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
         }
+        
+        // Remove pulse layers
+        for (let i = 1; i <= 3; i++) {
+          const layerId = `${PULSE_LAYER_ID}-${i}`;
+          if (map.getLayer(layerId)) {
+            map.removeLayer(layerId);
+          }
+        }
+        if (map.getSource(PULSE_SOURCE_ID)) {
+          map.removeSource(PULSE_SOURCE_ID);
+        }
+        
+        // Remove drone layers
+        if (map.getLayer(LAYER_ID)) {
+          map.removeLayer(LAYER_ID);
+        }
+        if (map.getSource(SOURCE_ID)) {
+          map.removeSource(SOURCE_ID);
+        }
+        
+        layersAddedRef.current = false;
+        pulseLayersAddedRef.current = false;
+        console.log('🧹 Cleaned up drone layers');
+      } catch (error) {
+        // Ignore errors during cleanup (map might be destroyed)
+        console.log('ℹ️ Cleanup skipped (map destroyed)');
       }
-      if (map.getSource(PULSE_SOURCE_ID)) {
-        map.removeSource(PULSE_SOURCE_ID);
-      }
-      
-      // Remove drone layers
-      if (map.getLayer(LAYER_ID)) {
-        map.removeLayer(LAYER_ID);
-      }
-      if (map.getSource(SOURCE_ID)) {
-        map.removeSource(SOURCE_ID);
-      }
-      
-      layersAddedRef.current = false;
-      pulseLayersAddedRef.current = false;
-      console.log('🧹 Cleaned up drone layers');
     };
   }, [map]);
 

@@ -99,19 +99,21 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
           if ((frame as any).imageUrl) {
             imageUrl = (frame as any).imageUrl;
           } else if (frame.source_id && frame.frame_id) {
-            // ลอง format ต่างๆ
-            imageUrl = `http://82.26.104.161:3000/frames/${frame.source_id}/${frame.frame_id}.jpg`;
+            // ใช้ API route ที่จะ proxy ไปยัง external server
+            imageUrl = `/api/frames/${frame.source_id}/${frame.frame_id}.jpg`;
           } else {
-            imageUrl = `http://82.26.104.161:3000/frames/${frameId}.jpg`;
+            imageUrl = `/api/frames/unknown/${frameId}.jpg`;
           }
           
-          console.log('📷 Camera frame:', {
+          console.log('📷 Camera frame DEBUG:', {
             camId,
             frameId,
             source_id: frame.source_id,
             frame_id: frame.frame_id,
+            fram_id: frame.fram_id,
             imageUrl,
-            hasImageUrl: !!(frame as any).imageUrl
+            hasImageUrl: !!(frame as any).imageUrl,
+            fullFrame: frame
           });
           
           return (
@@ -154,7 +156,6 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
                   onError={(e) => {
                     const target = e.currentTarget;
                     const currentUrl = target.src;
-                    console.error('❌ Image load failed:', currentUrl);
                     
                     // ลอง URL อื่นๆ
                     const alternativeUrls = [
@@ -167,12 +168,11 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
                     // ลอง URL ถัดไป
                     if (alternativeUrls.length > 0 && !target.dataset.tried) {
                       target.dataset.tried = 'true';
-                      console.log('🔄 Trying alternative URL:', alternativeUrls[0]);
                       target.src = alternativeUrls[0];
                       return;
                     }
                     
-                    // ถ้าลองหมดแล้ว แสดง NO FEED
+                    // ถ้าลองหมดแล้ว แสดง NO FEED (ไม่แสดง error ใน console)
                     target.style.display = 'none';
                     const parent = target.parentElement;
                     if (parent && !parent.querySelector('.no-feed-message')) {

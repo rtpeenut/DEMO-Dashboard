@@ -46,41 +46,48 @@ export default function DroneHistoryPanel({ droneId, droneName, toolbarHeight, o
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // ✅ ดึงข้อมูลย้อนหลังจาก backend (ยังไม่ได้ทำ API)
+  // ✅ ดึงข้อมูลย้อนหลังจาก API
   useEffect(() => {
     const fetchHistory = async () => {
       try {
         setIsLoading(true);
-        // TODO: เรียก API เพื่อดึงข้อมูลย้อนหลัง
-        // const response = await fetch(`/api/drones/${droneId}/history`);
-        // const data = await response.json();
-        // setHistoryData(data);
         
-        // ✅ Mock data สำหรับทดสอบ
-        const mockData: DroneHistoryData[] = [
-          { timestamp: '12:00', lat: 13.73, lng: 100.52, alt: 20000 },
-          { timestamp: '12:30', lat: 13.74, lng: 100.53, alt: 21000 },
-          { timestamp: '13:00', lat: 13.75, lng: 100.54, alt: 15000 },
-          { timestamp: '13:30', lat: 13.76, lng: 100.55, alt: 10000 },
-          { timestamp: '14:00', lat: 13.77, lng: 100.56, alt: 12500 },
-          { timestamp: '14:30', lat: 13.78, lng: 100.57, alt: 9000 },
-          { timestamp: '15:00', lat: 13.79, lng: 100.58, alt: 15500 },
-          { timestamp: '15:30', lat: 13.80, lng: 100.59, alt: 17500 },
-          { timestamp: '16:00', lat: 13.81, lng: 100.60, alt: 16000 },
-          { timestamp: '12:00', lat: 13.73, lng: 100.52, alt: 20000 },
-          { timestamp: '12:30', lat: 13.74, lng: 100.53, alt: 21000 },
-          { timestamp: '13:00', lat: 13.75, lng: 100.54, alt: 15000 },
-          { timestamp: '13:30', lat: 13.76, lng: 100.55, alt: 10000 },
-          { timestamp: '14:00', lat: 13.77, lng: 100.56, alt: 12500 },
-          { timestamp: '14:30', lat: 13.78, lng: 100.57, alt: 9000 },
-          { timestamp: '15:00', lat: 13.79, lng: 100.58, alt: 15500 },
-          { timestamp: '15:30', lat: 13.80, lng: 100.59, alt: 17500 },
-          { timestamp: '16:00', lat: 13.81, lng: 100.60, alt: 16000 },
+        // ✅ เรียก API detection path
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://82.26.104.188:3000';
+        const response = await fetch(`${apiUrl}/api/detection/${droneId}/path`, {
+          cache: 'no-store',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📊 Drone history data:', data);
+        
+        // ✅ แปลงข้อมูลจาก API เป็น format ที่ใช้แสดงผล
+        const formattedData: DroneHistoryData[] = data.count.map((item: any) => {
+          // แปลง timestamp เป็น readable format
+          const date = new Date(item.t);
+          const timeStr = date.toLocaleTimeString('th-TH', { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            second: '2-digit'
+          });
           
-        ];
-        setHistoryData(mockData);
+          return {
+            timestamp: timeStr,
+            lat: item.lat,
+            lng: item.lng,
+            alt: item.alt || 0,
+          };
+        });
+        
+        setHistoryData(formattedData);
       } catch (error) {
         console.error('Error fetching drone history:', error);
+        // ถ้า error ให้แสดงข้อมูลว่าง
+        setHistoryData([]);
       } finally {
         setIsLoading(false);
       }
