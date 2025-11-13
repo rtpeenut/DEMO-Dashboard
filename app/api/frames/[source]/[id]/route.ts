@@ -12,11 +12,13 @@ export async function GET(
     // ลบ .jpg extension ถ้ามี
     const frameId = id.replace('.jpg', '');
     
-    // ✅ ลองหลาย ports: 3000 (Next.js), 8000, 5000
+    // ✅ ลองหลาย ports และ IPs - ใช้ IP เดียวกับ WebSocket (180) ก่อน
     const possibleUrls = [
+      `http://82.26.104.180:3000/frames/${source}/${frameId}.jpg`,
       `http://82.26.104.161:3000/frames/${source}/${frameId}.jpg`,
+      `http://82.26.104.180:8000/frames/${source}/${frameId}.jpg`,
       `http://82.26.104.161:8000/frames/${source}/${frameId}.jpg`,
-      `http://82.26.104.161:5000/frames/${source}/${frameId}.jpg`,
+      `http://82.26.104.180:5000/frames/${source}/${frameId}.jpg`,
       `http://localhost:8000/frames/${source}/${frameId}.jpg`,
     ];
     

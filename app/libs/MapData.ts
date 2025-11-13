@@ -211,13 +211,39 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
 }
 // ✅ Map object from frame to Drone - รองรับทั้ง format เก่าและใหม่
 export function mapBackendDrone(obj: any, camId?: string, timestamp?: string): Drone {
-  // ✅ Determine status from type
+  const droneId = obj.drone_id || obj.obj_id || obj.id || "unknown";
+  const droneCallsign = (obj.drone_id || obj.obj_id || obj.id || "UNNAMED")?.toUpperCase();
+  const droneIdLower = droneId.toLowerCase();
+  
+  // ✅ Special case: TRACK-0, TRACK-1, TRACK-02, and TRACK-03 are always HOSTILE
   let status: "FRIEND" | "HOSTILE" | "UNKNOWN" = "UNKNOWN";
-  const objType = (obj.type || "").toLowerCase();
-  if (objType.includes("friend") || objType === "friendly") {
-    status = "FRIEND";
-  } else if (objType.includes("hostile") || objType === "enemy") {
+  if (droneIdLower === "track-0" || droneCallsign === "TRACK-0" || 
+      droneIdLower === "track-1" || droneCallsign === "TRACK-1" ||
+      droneIdLower === "track-02" || droneCallsign === "TRACK-02" ||
+      droneIdLower === "track-03" || droneCallsign === "TRACK-03" ||
+      droneId === "track-0" || droneId === "track-1" ||
+      droneId === "TRACK-0" || droneId === "TRACK-1" ||
+      droneId === "track-02" || droneId === "TRACK-02" ||
+      droneId === "track-03" || droneId === "TRACK-03") {
     status = "HOSTILE";
+  } else if (droneId === "007" || droneCallsign === "007" || droneId === "123" || droneCallsign === "123") {
+    // ✅ Special case: Drones "007" and "123" are always FRIEND
+    status = "FRIEND";
+  } else {
+    // ✅ Default to HOSTILE for all drones except "007" and "123"
+    // Only override if type/status explicitly says FRIEND
+    status = "HOSTILE";
+    const objType = (obj.type || "").toLowerCase();
+    if (objType.includes("friend") || objType === "friendly") {
+      status = "FRIEND";
+    }
+    // ✅ Also check status field if provided directly (same logic as route.js)
+    if (obj.status) {
+      const objStatus = String(obj.status).toUpperCase();
+      if (objStatus === "FRIEND" || objStatus === "HOSTILE" || objStatus === "UNKNOWN") {
+        status = objStatus;
+      }
+    }
   }
 
   // ✅ Extract position - รองรับทั้ง lng และ lon

@@ -32,6 +32,7 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
   const wsRef = useRef<WebSocket | null>(null);
+  const [wsStatus, setWsStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('connecting');
 
   // ✅ จัดการขนาดให้สูงเท่ากับแถบเครื่องมือด้านขวา
   useEffect(() => {
@@ -44,27 +45,115 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
 
   // ✅ WebSocket connection สำหรับรับภาพ realtime
   useEffect(() => {
-    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://82.26.104.161:3000/ws';
-    console.log('🔌 Connecting to WebSocket:', wsUrl);
+    // ใช้ WebSocket URL เดียวกับ MapData.ts หรือใช้ environment variable
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://82.26.104.180:3000/ws?role=front';
+    console.log('🔌 Connecting to WebSocket for images:', wsUrl);
     
     const ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('✅ WebSocket connected');
+      console.log('✅ WebSocket connected for images');
+      setWsStatus('connected');
     };
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = async (ev) => {
       try {
-        // รับข้อมูลแบบ JSON (Base64)
-        const msg: WSImageMessage = JSON.parse(ev.data);
+        // ✅ Handle binary data (ArrayBuffer/Blob)
+        if (ev.data instanceof ArrayBuffer) {
+          console.log('📦 Received binary image data, size:', ev.data.byteLength);
+          const blob = new Blob([ev.data], { type: 'image/jpeg' });
+          const url = URL.createObjectURL(blob);
+          
+          // ถ้ามี frame metadata จาก frameStore ให้ใช้ cam_id จากนั้น
+          // ไม่งั้นใช้ default
+          const frames = getAllFrames();
+          if (frames.length > 0) {
+            const latestFrame = frames[0];
+            const camId = latestFrame.cam_id || latestFrame.source_id || 'default';
+            setLiveImages(prev => {
+              const newMap = new Map(prev);
+              // Cleanup old URL if exists
+              const oldUrl = prev.get(camId);
+              if (oldUrl && oldUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(oldUrl);
+              }
+              newMap.set(camId, url);
+              return newMap;
+            });
+          } else {
+            setLiveImages(prev => {
+              const newMap = new Map(prev);
+              const oldUrl = prev.get('default');
+              if (oldUrl && oldUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(oldUrl);
+              }
+              newMap.set('default', url);
+              return newMap;
+            });
+          }
+          return;
+        }
+
+        // ✅ Handle Blob data
+        if (ev.data instanceof Blob) {
+          console.log('📦 Received Blob image data, type:', ev.data.type, 'size:', ev.data.size);
+          const url = URL.createObjectURL(ev.data);
+          const frames = getAllFrames();
+          if (frames.length > 0) {
+            const latestFrame = frames[0];
+            const camId = latestFrame.cam_id || latestFrame.source_id || 'default';
+            setLiveImages(prev => {
+              const newMap = new Map(prev);
+              const oldUrl = prev.get(camId);
+              if (oldUrl && oldUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(oldUrl);
+              }
+              newMap.set(camId, url);
+              return newMap;
+            });
+          } else {
+            setLiveImages(prev => {
+              const newMap = new Map(prev);
+              const oldUrl = prev.get('default');
+              if (oldUrl && oldUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(oldUrl);
+              }
+              newMap.set('default', url);
+              return newMap;
+            });
+          }
+          return;
+        }
+
+        // ✅ Handle text/JSON data
+        let rawData = ev.data;
+        if (rawData instanceof Blob) {
+          rawData = await rawData.text();
+        }
+
+        // Skip if not a string
+        if (typeof rawData !== 'string') {
+          return;
+        }
+
+        // Check if it's JSON
+        const trimmed = rawData.trim();
+        if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+          // Not JSON, might be binary data
+          return;
+        }
+
+        // Parse JSON
+        const msg = JSON.parse(rawData);
         
+        // ✅ Handle image message with Base64 data
         if (msg.type === 'image' && msg.mime && msg.data) {
-          const camId = msg.cam_id || 'unknown';
+          const camId = msg.cam_id || msg.source_id || 'unknown';
           const imgUrl = `data:${msg.mime};base64,${msg.data}`;
           
-          console.log('📸 Received image via WebSocket:', {
+          console.log('📸 Received Base64 image via WebSocket:', {
             camId,
             frameId: msg.frame_id,
             mime: msg.mime,
@@ -74,38 +163,89 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
           // อัปเดตภาพ live
           setLiveImages(prev => {
             const newMap = new Map(prev);
+            // Cleanup old blob URL if exists
+            const oldUrl = prev.get(camId);
+            if (oldUrl && oldUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(oldUrl);
+            }
             newMap.set(camId, imgUrl);
             return newMap;
           });
+          return;
         }
-      } catch (err) {
-        // ถ้าไม่ใช่ JSON อาจเป็น binary
-        if (ev.data instanceof ArrayBuffer) {
-          const blob = new Blob([ev.data], { type: 'image/jpeg' });
-          const url = URL.createObjectURL(blob);
+
+        // ✅ Handle frame_meta message (might contain image data)
+        if ((msg.kind === 'frame' || msg.kind === 'frame_meta') && msg.image_data) {
+          const camId = msg.source_id || msg.cam_id || 'unknown';
+          const mime = msg.image_info?.mime || 'image/jpeg';
+          const imgUrl = `data:${mime};base64,${msg.image_data}`;
           
-          // ใช้ default cam_id ถ้าไม่มีข้อมูล
+          console.log('📸 Received frame_meta with image data via WebSocket:', {
+            camId,
+            frameId: msg.frame_id,
+            mime
+          });
+          
           setLiveImages(prev => {
             const newMap = new Map(prev);
-            newMap.set('default', url);
+            const oldUrl = prev.get(camId);
+            if (oldUrl && oldUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(oldUrl);
+            }
+            newMap.set(camId, imgUrl);
             return newMap;
           });
+          return;
         }
+
+        // ✅ Log other messages for debugging
+        if (msg.type !== 'hello' && msg.kind !== 'frame_meta') {
+          console.log('📨 Received WebSocket message (not image):', {
+            type: msg.type,
+            kind: msg.kind,
+            hasData: !!msg.data,
+            hasImageData: !!msg.image_data
+          });
+        }
+      } catch (err) {
+        // Only log if it's not a parsing error for non-JSON data
+        if (err instanceof SyntaxError) {
+          // Might be binary data, ignore
+          return;
+        }
+        console.error('❌ Error processing WebSocket message:', err);
       }
     };
 
     ws.onerror = (e) => {
       console.error('❌ WebSocket error:', e);
+      setWsStatus('error');
     };
 
-    ws.onclose = () => {
-      console.log('🔌 WebSocket closed');
+    ws.onclose = (event) => {
+      console.log('🔌 WebSocket closed:', event.code, event.reason);
+      setWsStatus('disconnected');
+      // Optional: Try to reconnect after a delay
+      // setTimeout(() => {
+      //   if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      //     // Reconnect logic here
+      //   }
+      // }, 3000);
     };
 
     return () => {
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
         ws.close();
       }
+      // Cleanup blob URLs - use current state
+      setLiveImages(prev => {
+        prev.forEach(url => {
+          if (url.startsWith('blob:')) {
+            URL.revokeObjectURL(url);
+          }
+        });
+        return new Map(); // Clear the map
+      });
     };
   }, []);
 
@@ -159,8 +299,27 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
       </div>
 
       {/* Camera Info Header */}
-      <div className="mb-2 rounded-xl bg-zinc-800 px-4 py-2 text-zinc-300 font-sans text-sm">
-        LIVE CAMERAS
+      <div className="mb-2 rounded-xl bg-zinc-800 px-4 py-2 text-zinc-300 font-sans text-sm flex items-center justify-between">
+        <span>LIVE CAMERAS</span>
+        <div className="flex items-center gap-2">
+          <div className={`w-2 h-2 rounded-full ${
+            wsStatus === 'connected' ? 'bg-green-500 animate-pulse' :
+            wsStatus === 'connecting' ? 'bg-yellow-500 animate-pulse' :
+            wsStatus === 'error' ? 'bg-red-500' :
+            'bg-gray-500'
+          }`} title={
+            wsStatus === 'connected' ? 'WebSocket Connected' :
+            wsStatus === 'connecting' ? 'Connecting...' :
+            wsStatus === 'error' ? 'WebSocket Error' :
+            'WebSocket Disconnected'
+          } />
+          <span className="text-xs text-zinc-400">
+            {wsStatus === 'connected' ? 'WS' :
+             wsStatus === 'connecting' ? 'Connecting' :
+             wsStatus === 'error' ? 'Error' :
+             'Offline'}
+          </span>
+        </div>
       </div>
 
       {/* Camera Feeds */}
@@ -249,32 +408,67 @@ export default function CameraSidebar({ onClose }: CameraSidebarProps) {
                       return;
                     }
                     
-                    // ลอง URL อื่นๆ
-                    const alternativeUrls = [
-                      `http://82.26.104.161:3000/frames/${frame.source_id}/${frame.frame_id}.jpg`,
-                      `http://82.26.104.161:3000/frames/${frame.frame_id}.jpg`,
-                      `http://82.26.104.161:3000/frames/${frameId}.jpg`,
-                      `http://82.26.104.161:3000/api/frames/${frame.source_id}/${frame.frame_id}.jpg`,
-                    ].filter(url => url !== currentUrl && !url.includes('undefined'));
+                    // ลอง URL อื่นๆ - ใช้ IP เดียวกับ WebSocket (180)
+                    const baseUrls: string[] = [
+                      'http://82.26.104.180:3000',
+                      'http://82.26.104.161:3000',
+                      'http://82.26.104.180:8000',
+                      'http://82.26.104.161:8000',
+                      'http://82.26.104.180:5000',
+                      'http://82.26.104.161:5000',
+                    ];
+                    
+                    const alternativeUrls: string[] = [];
+                    if (frame.source_id && frame.frame_id) {
+                      baseUrls.forEach(base => {
+                        alternativeUrls.push(`${base}/frames/${frame.source_id}/${frame.frame_id}.jpg`);
+                        alternativeUrls.push(`${base}/api/frames/${frame.source_id}/${frame.frame_id}.jpg`);
+                      });
+                    }
+                    if (frame.frame_id) {
+                      baseUrls.forEach(base => {
+                        alternativeUrls.push(`${base}/frames/${frame.frame_id}.jpg`);
+                      });
+                    }
+                    baseUrls.forEach(base => {
+                      alternativeUrls.push(`${base}/frames/${frameId}.jpg`);
+                    });
+                    
+                    // Filter out invalid URLs and current URL
+                    const validUrls: string[] = alternativeUrls.filter(url => 
+                      url !== currentUrl && 
+                      !url.includes('undefined') && 
+                      !url.includes('null')
+                    );
+                    
+                    console.log('🔄 Trying alternative URLs for', camId, ':', validUrls.length, 'URLs');
                     
                     // ลอง URL ถัดไป
-                    if (alternativeUrls.length > 0 && !target.dataset.tried) {
-                      target.dataset.tried = 'true';
-                      target.src = alternativeUrls[0];
+                    const triedCount = parseInt(target.dataset.triedCount || '0');
+                    if (validUrls.length > triedCount) {
+                      target.dataset.triedCount = (triedCount + 1).toString();
+                      const nextUrl = validUrls[triedCount];
+                      console.log(`🔄 Trying URL ${triedCount + 1}/${validUrls.length}:`, nextUrl);
+                      target.src = nextUrl;
                       return;
                     }
                     
-                    // ถ้าลองหมดแล้ว แสดง NO FEED (ไม่แสดง error ใน console)
+                    // ถ้าลองหมดแล้ว แสดง NO FEED
                     target.style.display = 'none';
                     const parent = target.parentElement;
                     if (parent && !parent.querySelector('.no-feed-message')) {
                       const noFeedDiv = document.createElement('div');
                       noFeedDiv.className = 'no-feed-message absolute inset-0 flex flex-col items-center justify-center text-zinc-500 text-xs font-semibold p-2';
+                      const triedUrls = [currentUrl, ...validUrls].slice(0, 3); // Show first 3 URLs
                       noFeedDiv.innerHTML = `
                         <div>NO FEED</div>
-                        <div class="text-[10px] text-zinc-600 mt-1 break-all text-center">Tried: ${currentUrl}</div>
+                        <div class="text-[10px] text-zinc-600 mt-1 break-all text-center max-w-full px-2">
+                          Tried: ${triedUrls[0] || currentUrl}
+                          ${triedUrls.length > 1 ? `<br/>Also tried: ${triedUrls.length - 1} more URLs` : ''}
+                        </div>
                       `;
                       parent.appendChild(noFeedDiv);
+                      console.warn('⚠️ All image URLs failed for', camId, ':', triedUrls);
                     }
                   }}
                   onLoad={() => {
