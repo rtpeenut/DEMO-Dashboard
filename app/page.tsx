@@ -10,13 +10,11 @@ const HomeSidebar = dynamic(() => import("@/app/components/dashboard/HomeSidebar
 const DroneDetail = dynamic(() => import("@/app/components/dashboard/DroneDetail"), { ssr: false });
 const Databar = dynamic(() => import("@/app/components/dashboard/DataBar"), { ssr: false });
 const DroneHistoryPanel = dynamic(() => import("@/app/components/dashboard/DroneHistoryPanel"), { ssr: false });
-const MapCompass = dynamic(() => import("@/app/components/dashboard/MapCompass"), { ssr: false });
 const NotificationSidebar = dynamic(() => import("@/app/components/dashboard/NotificationSidebar"), { ssr: false });
 const NotificationPanel = dynamic(() => import("@/app/components/dashboard/NotificationPanel"), { ssr: false });
 const CameraSidebar = dynamic(() => import("@/app/components/dashboard/CameraSidebar"), { ssr: false });
 const SettingsSidebar = dynamic(() => import("@/app/components/dashboard/SettingsSidebar"), { ssr: false });
 const DroneCounter = dynamic(() => import("@/app/components/dashboard/DroneCounter"), { ssr: false });
-const DroneHistoryPanel = dynamic(() => import("@/app/components/dashboard/DroneHistoryPanel"), { ssr: false });
 
 
 export default function HomePage() {
@@ -25,13 +23,11 @@ export default function HomePage() {
     callsign: string;
     type: string;
     status: "FRIEND" | "HOSTILE" | "UNKNOWN";
-    status: "FRIEND" | "HOSTILE" | "UNKNOWN";
     speedKt: number;
     altitudeFt: number;
     headingDeg: number;
     lastUpdate?: string;
     mgrs?: string;
-    position: [number, number];
     position: [number, number];
     imageUrl?: string;
     camId?: string;
@@ -51,62 +47,23 @@ export default function HomePage() {
   const [openHome, setOpenHome] = useState(false);
   const [openData, setOpenData] = useState(false);
   const [openCamera, setOpenCamera] = useState(false);
-  const [openNotif, setOpenNotif] = useState(false); // ✅ Sidebar การแจ้งเตือน
-  const [openSettings, setOpenSettings] = useState(false); // ✅ Sidebar การตั้งค่า
+  const [openNotif, setOpenNotif] = useState(false);
+  const [openSettings, setOpenSettings] = useState(false);
+  const [showProtect, setShowProtect] = useState(false);
   const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null);
   const [selectedDroneHistory, setSelectedDroneHistory] = useState<{ id: string; name: string } | null>(null);
   const [toolbarHeight, setToolbarHeight] = useState<number>(0);
   const [mapStyle, setMapStyle] = useState('mapbox://styles/mapbox/dark-v11');
   const [mapInstance, setMapInstance] = useState<any>(null);
-
-  // Get map instance from window
-  useEffect(() => {
-    const checkMap = setInterval(() => {
-      if ((window as any).mapboxInstance) {
-        setMapInstance((window as any).mapboxInstance);
-        clearInterval(checkMap);
-      }
-    }, 100);
-
-    return () => clearInterval(checkMap);
-  }, []);
-
-  // Calculate toolbar height
-  useEffect(() => {
-    const updateToolbarHeight = () => {
-      const toolbar = document.querySelector('#right-toolbar');
-      if (toolbar) {
-        const { height } = toolbar.getBoundingClientRect();
-        setToolbarHeight(height);
-      }
-    };
-
-    // Initial calculation
-    updateToolbarHeight();
-
-    // Re-calculate after a short delay to ensure RightToolbar is rendered
-    const timer = setTimeout(updateToolbarHeight, 100);
-
-    // Re-calculate on window resize
-    window.addEventListener('resize', updateToolbarHeight);
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', updateToolbarHeight);
-    };
-  }, []);
   const [followDrone, setFollowDrone] = useState<Drone | null>(null);
-
-  const [notifications, setNotifications] = useState<any[]>([]); // ✅ เก็บประวัติแจ้งเตือนรวมไว้ที่ระดับหน้า
-  const [popupNotifications, setPopupNotifications] = useState<any[]>([]); // ✅ เก็บการแจ้งเตือนแบบ popup
-  const [popupNotifications, setPopupNotifications] = useState<any[]>([]); // ✅ เก็บการแจ้งเตือนแบบ popup
-  const [drones, setDrones] = useState<Drone[]>([]); // ✅ เก็บ drones สำหรับ HUD และ Sidebar
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [popupNotifications, setPopupNotifications] = useState<any[]>([]);
+  const [drones, setDrones] = useState<Drone[]>([]);
   const [filter, setFilter] = useState<'ALL' | 'FRIEND' | 'HOSTILE' | 'UNKNOWN'>('ALL');
   const [selectedCamId, setSelectedCamId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedDroneHistory, setSelectedDroneHistory] = useState<{ id: string; name: string } | null>(null);
-  const [toolbarHeight, setToolbarHeight] = useState<number>(0);
-  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [marks, setMarks] = useState<Mark[]>([]);
+  const [isMarking, setIsMarking] = useState(false);
 
   // Get map instance from window
   useEffect(() => {
@@ -332,11 +289,11 @@ export default function HomePage() {
           selectedDrone={selectedDrone}
           onSelectDrone={(drone: any) => setSelectedDrone(drone)}
           followDrone={followDrone}
-          marks={[]}
-          setMarks={() => {}}
-          onAddMark={async () => {}}
-          isMarking={false}
-          onFinishMark={() => {}}
+          marks={marks}
+          setMarks={setMarks}
+          onAddMark={handleAddMark}
+          isMarking={isMarking}
+          onFinishMark={() => setIsMarking(false)}
           notifications={notifications}
           setNotifications={setNotifications}
           mapStyle={mapStyle}
