@@ -16,6 +16,23 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Configuration
+
+Create a `.env.local` file in the root directory to configure the backend connection:
+
+```env
+# Backend API URL (default: http://localhost:3000)
+NEXT_PUBLIC_BACKEND_URL=http://localhost:3000
+
+# Data source preference (optional)
+# Set to "api" to use REST API polling, or "ws" (or leave unset) to use WebSocket
+# NEXT_PUBLIC_DATA_SOURCE=api
+```
+
+The frontend connects to the backend via:
+- **WebSocket**: `ws://<BACKEND_URL>/ws?role=front` for real-time updates
+- **REST API**: `http://<BACKEND_URL>/api/drones` for polling (if `NEXT_PUBLIC_DATA_SOURCE=api`)
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

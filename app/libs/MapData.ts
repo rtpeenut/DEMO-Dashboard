@@ -197,6 +197,10 @@ function distanceMeters(a: [number, number], b: [number, number]): number {
   return R * c;
 }
 // ✅ Map object from frame to Drone
+// Handles multiple backend message formats:
+// 1. type: "drone" from mqtt/ingest.ts: { type: "drone", drone_id, latitude, longitude, altitude_m, speed_mps, timestamp }
+// 2. type: "drone:update" from mqtt/drone-state-consumer.ts: { type: "drone:update", droneId, lat, lon, alt_m, speed_m_s, heading_deg, ts, ... }
+// 3. frame_meta objects from ws/hub.ts: { kind: "frame_meta", objects: [{ drone_id, lat, lon, alt_m, speed_mps, timestamp }] }
 export function mapBackendDrone(obj: any, camId?: string, timestamp?: string): Drone {
   // ✅ Determine status from type
   let status: "FRIEND" | "HOSTILE" | "UNKNOWN" = "UNKNOWN";
@@ -207,25 +211,29 @@ export function mapBackendDrone(obj: any, camId?: string, timestamp?: string): D
     status = "HOSTILE";
   }
 
-  // ✅ Extract values with proper fallbacks
-  const lat = typeof obj.lat === 'number' ? obj.lat : (typeof obj.latitude === 'number' ? obj.latitude : 0);
-  const lng = typeof obj.lng === 'number' ? obj.lng : (typeof obj.longitude === 'number' ? obj.longitude : 0);
-  const alt = typeof obj.alt === 'number' ? obj.alt : (typeof obj.altitude_m === 'number' ? obj.altitude_m : 0);
-  const speedKt = typeof obj.speed_kt === 'number' ? obj.speed_kt : (obj.speed_mps ? obj.speed_mps * 1.94384 : 0);
+  // ✅ Extract values with proper fallbacks for all backend formats
+  const droneId = obj.drone_id || obj.droneId || obj.obj_id || obj.id || "unknown";
+  const lat = obj.lat ?? obj.latitude ?? 0;
+  const lng = obj.lng ?? obj.lon ?? obj.longitude ?? 0;
+  const alt = obj.alt ?? obj.alt_m ?? obj.altitude_m ?? 0;
+  const speedMps = obj.speed_mps ?? obj.speed_m_s ?? 0;
+  const speedKt = obj.speed_kt ?? (speedMps ? speedMps * 1.94384 : 0);
+  const headingDeg = obj.heading_deg ?? obj.headingDeg ?? 0;
+  const ts = timestamp || obj.timestamp || obj.ts || obj.receivedAt || new Date().toISOString();
   
   return {
-    id: obj.obj_id || obj.drone_id || obj.id || "unknown",
-    callsign: (obj.obj_id || obj.drone_id || obj.id || "UNNAMED")?.toUpperCase(),
-    type: obj.type || "unknown",
+    id: droneId,
+    callsign: droneId.toUpperCase(),
+    type: obj.type || "UAV",
     status: status,
     speedKt: speedKt,
     altitudeFt: alt * 3.28084, // ✅ แปลงเมตรเป็นฟุต
     alt: alt, // ✅ เก็บค่าเมตรไว้สำหรับ tooltip
-    headingDeg: 0,
+    headingDeg: headingDeg,
     position: [lat, lng] as [number, number], // ✅ ใช้ lat, lng โดยตรง
-    lastUpdate: timestamp || obj.timestamp || new Date().toISOString(),
+    lastUpdate: ts,
     imageUrl: obj.image_path || undefined,
-    camId: camId || obj.camId || obj.cam_id,
+    camId: camId || obj.camId || obj.cam_id || obj.source_id,
   };
 }
 
@@ -242,8 +250,10 @@ export function getAllFrames(): Frame[] {
   return Array.from(frameStore.values());
 }
 export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
-  const ws = new WebSocket("ws://82.26.104.161:3000/ws");
-  // const ws = new WebSocket("ws://ace42530b32d.ngrok-free.app/ws");
+  // Get backend URL from environment variable, fallback to localhost
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000";
+  const wsUrl = backendUrl.replace(/^http/, "ws") + "/ws?role=front";
+  const ws = new WebSocket(wsUrl);
 
 
   const droneMap = new Map<string, Drone>();
@@ -293,14 +303,29 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
         return;
       }
       
-      // ✅ รองรับทั้งรูปแบบเก่า (type: "drone") และรูปแบบใหม่ (frame with objects array)
+      // ✅ รองรับหลายรูปแบบจาก backend:
+      // 1. type: "drone" from mqtt/ingest.ts
+      // 2. type: "drone:update" from mqtt/drone-state-consumer.ts
+      // 3. frame_meta with objects array from ws/hub.ts
+      // 4. frame format with objects array
       let objects: any[] = [];
       
       if (data.type === "drone") {
-        // รูปแบบเก่า: single drone object
+        // รูปแบบจาก mqtt/ingest.ts: single drone object
         objects = [data];
+      } else if (data.type === "drone:update") {
+        // รูปแบบจาก mqtt/drone-state-consumer.ts: drone state update
+        objects = [data];
+      } else if (data.kind === "frame_meta" && data.objects && Array.isArray(data.objects)) {
+        // รูปแบบจาก ws/hub.ts: frame_meta with objects array
+        const frameTimestamp = data.timestamp || new Date().toISOString();
+        objects = data.objects.map((obj: any) => ({
+          ...obj,
+          timestamp: obj.timestamp || frameTimestamp,
+          cam_id: data.source_id || obj.source_id,
+        }));
       } else if (data.objects && Array.isArray(data.objects)) {
-        // รูปแบบใหม่: frame object with objects array (format from backend)
+        // รูปแบบ frame object with objects array
         // Format: { fram_id, cam_id, token_id, timestamp, image_info, objects: [...] }
         const frame: Frame = {
           fram_id: data.fram_id,
@@ -321,7 +346,8 @@ export function subscribeDrones(onUpdate: (list: Drone[]) => void) {
           cam_id: frame.cam_id, // เพิ่ม cam_id ให้แต่ละ object
         }));
       } else {
-        // ไม่ใช่รูปแบบที่รองรับ
+        // ไม่ใช่รูปแบบที่รองรับ - log for debugging
+        console.debug("⚠️ Unhandled WebSocket message format:", data);
         return;
       }
 
