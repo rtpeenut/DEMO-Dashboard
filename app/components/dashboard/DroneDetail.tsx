@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Route, Plus, Columns } from "lucide-react";
 import { subscribeDrones, subscribeDronesApi, getFrameByCamId, getAllFrames } from "@/app/libs/MapData"; // ✅ ใช้ WebSocket/REST ตามการตั้งค่า
 import { latLngToMGRS } from "@/app/utils/mapUtils";
@@ -32,11 +32,185 @@ interface DroneDetailProps {
 export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onSplitScreen, splitScreen }: DroneDetailProps) {
   const [droneData, setDroneData] = useState(drone);
   const [imageUrl, setImageUrl] = useState<string>('');
+  const [liveImageUrl, setLiveImageUrl] = useState<string>('');
+  const [imageError, setImageError] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     // ✅ อัปเดต droneData เมื่อ drone prop เปลี่ยน
     setDroneData(drone);
   }, [drone]);
+
+  // ✅ WebSocket connection สำหรับรับภาพ realtime (เหมือน CameraSidebar)
+  useEffect(() => {
+    const camId = (droneData as any).camId || droneData.idCamera || droneData.id;
+    if (!camId) return;
+
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://82.26.104.180:3000/ws?role=front';
+    console.log('🔌 Connecting WebSocket for drone image:', { camId, wsUrl });
+    
+    const ws = new WebSocket(wsUrl);
+    ws.binaryType = 'arraybuffer';
+    wsRef.current = ws;
+    
+    let currentBlobUrl: string | null = null;
+
+    ws.onopen = () => {
+      console.log('✅ WebSocket connected for drone image:', camId);
+    };
+
+    ws.onmessage = async (ev) => {
+      try {
+        // ✅ Handle binary data (ArrayBuffer/Blob) - รับรูปภาพจาก WebSocket
+        if (ev.data instanceof ArrayBuffer) {
+          // ใช้วิธีเดียวกับ CameraSidebar: ดูจาก latest frame ใน frame store
+          const allFrames = getAllFrames();
+          if (allFrames.length > 0) {
+            // หา latest frame จาก timestamp (หรือใช้ frames[0] ถ้า CameraSidebar ใช้แบบนั้น)
+            const latestFrame = allFrames.sort((a, b) => {
+              const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+              const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+              return timeB - timeA; // เรียงจากใหม่ไปเก่า
+            })[0];
+            const frameCamId = latestFrame.cam_id || latestFrame.source_id;
+            
+            // เช็คว่า frame นี้เป็นของ drone นี้หรือไม่
+            const isMatch = frameCamId === camId || 
+                           frameCamId?.includes(camId) || 
+                           camId.includes(frameCamId) ||
+                           // เช็คว่า frame นี้มี drone นี้อยู่ใน objects หรือไม่
+                           latestFrame.objects?.some((obj: any) => {
+                             const objId = obj.drone_id || obj.obj_id || obj.id;
+                             return objId === droneData.id || objId === droneData.callsign;
+                           });
+            
+            if (isMatch) {
+              console.log('📦 Received binary image data for drone:', { camId, frameCamId, size: ev.data.byteLength });
+              const blob = new Blob([ev.data], { type: 'image/jpeg' });
+              const url = URL.createObjectURL(blob);
+              
+              // Cleanup old URL
+              if (currentBlobUrl) {
+                URL.revokeObjectURL(currentBlobUrl);
+              }
+              currentBlobUrl = url;
+              
+              setLiveImageUrl(url);
+              setImageError(false);
+            }
+          } else {
+            // ถ้ายังไม่มี frame ใช้รูปแรกที่มา (fallback)
+            console.log('📦 Received binary image data (no frames yet), using for drone:', { camId, size: ev.data.byteLength });
+            const blob = new Blob([ev.data], { type: 'image/jpeg' });
+            const url = URL.createObjectURL(blob);
+            
+            if (currentBlobUrl) {
+              URL.revokeObjectURL(currentBlobUrl);
+            }
+            currentBlobUrl = url;
+            
+            setLiveImageUrl(url);
+            setImageError(false);
+          }
+          return;
+        }
+
+        // ✅ Handle Blob data
+        if (ev.data instanceof Blob) {
+          // ใช้วิธีเดียวกับ CameraSidebar
+          const allFrames = getAllFrames();
+          if (allFrames.length > 0) {
+            // หา latest frame จาก timestamp
+            const latestFrame = allFrames.sort((a, b) => {
+              const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+              const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+              return timeB - timeA; // เรียงจากใหม่ไปเก่า
+            })[0];
+            const frameCamId = latestFrame.cam_id || latestFrame.source_id;
+            
+            const isMatch = frameCamId === camId || 
+                           frameCamId?.includes(camId) || 
+                           camId.includes(frameCamId) ||
+                           latestFrame.objects?.some((obj: any) => {
+                             const objId = obj.drone_id || obj.obj_id || obj.id;
+                             return objId === droneData.id || objId === droneData.callsign;
+                           });
+            
+            if (isMatch) {
+              console.log('📦 Received Blob image data for drone:', { camId, frameCamId, type: ev.data.type, size: ev.data.size });
+              const url = URL.createObjectURL(ev.data);
+              
+              if (currentBlobUrl) {
+                URL.revokeObjectURL(currentBlobUrl);
+              }
+              currentBlobUrl = url;
+              
+              setLiveImageUrl(url);
+              setImageError(false);
+            }
+          } else {
+            // Fallback: ใช้รูปแรกที่มา
+            console.log('📦 Received Blob image data (no frames yet), using for drone:', { camId, type: ev.data.type, size: ev.data.size });
+            const url = URL.createObjectURL(ev.data);
+            
+            if (currentBlobUrl) {
+              URL.revokeObjectURL(currentBlobUrl);
+            }
+            currentBlobUrl = url;
+            
+            setLiveImageUrl(url);
+            setImageError(false);
+          }
+          return;
+        }
+
+        // ✅ Handle text/JSON data (frame metadata)
+        let rawData = ev.data;
+        if (rawData instanceof Blob) {
+          rawData = await rawData.text();
+        }
+
+        if (typeof rawData !== 'string') {
+          return;
+        }
+
+        const trimmed = rawData.trim();
+        if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+          return;
+        }
+
+        const msg = JSON.parse(rawData);
+        
+        // ถ้าเป็น frame metadata ที่มี cam_id ตรงกับ drone นี้
+        const msgCamId = msg.cam_id || msg.source_id;
+        if (msgCamId && (msgCamId === camId || msgCamId.includes(camId) || camId.includes(msgCamId))) {
+          console.log('📸 Received frame metadata for drone:', { camId, msgCamId });
+          // Frame metadata จะถูกจัดการโดย MapData.ts แล้ว
+        }
+      } catch (error) {
+        console.error('❌ Error processing WebSocket message for drone image:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('❌ WebSocket error for drone image:', error);
+    };
+
+    ws.onclose = () => {
+      console.log('🔌 WebSocket closed for drone image');
+    };
+
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      // Cleanup blob URL
+      if (currentBlobUrl) {
+        URL.revokeObjectURL(currentBlobUrl);
+      }
+      setLiveImageUrl(''); // Clear state
+    };
+  }, [(droneData as any).camId, droneData.idCamera, droneData.id]);
 
   useEffect(() => {
     // ✅ เลือกแหล่งข้อมูลจาก env: NEXT_PUBLIC_DATA_SOURCE = 'api' | 'ws'
@@ -146,27 +320,44 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
       let url = droneData.imageUrl;
       const camId = (droneData as any).camId || droneData.idCamera || droneData.id;
       
+      console.log('🔍 Calculating image URL for drone:', {
+        droneId: droneData.id,
+        callsign: droneData.callsign,
+        camId,
+        hasImageUrl: !!droneData.imageUrl,
+        currentImageUrl: imageUrl
+      });
+      
       // ✅ ถ้าไม่มี imageUrl ให้ดึงจาก frame data
       if (!url) {
         // ✅ ลองหา frame จาก camId โดยตรง
         let frame = getFrameByCamId(camId);
+        console.log('📸 Frame lookup by camId:', { camId, found: !!frame });
         
         // ✅ ถ้าไม่เจอ ลองหา frame ที่มี drone นี้อยู่ใน objects
         if (!frame) {
           const allFrames = getAllFrames();
+          console.log('📸 Searching all frames for drone:', { totalFrames: allFrames.length, droneId: droneData.id });
           const foundFrame = allFrames.find(f => {
             return f.objects?.some((obj: any) => {
               const objId = obj.drone_id || obj.obj_id || obj.id;
               const objCallsign = (obj.drone_id || obj.obj_id || obj.id || '').toUpperCase();
               const droneId = droneData.id || '';
               const droneCallsign = (droneData.callsign || '').toUpperCase();
-              return objId === droneId || 
+              const matches = objId === droneId || 
                      objId === droneCallsign ||
                      objCallsign === droneId ||
                      objCallsign === droneCallsign;
+              if (matches) {
+                console.log('✅ Found matching drone in frame:', { objId, droneId, camId: f.cam_id || f.source_id });
+              }
+              return matches;
             });
           });
-          if (foundFrame) frame = foundFrame;
+          if (foundFrame) {
+            frame = foundFrame;
+            console.log('✅ Using frame with matching drone object');
+          }
         }
         
         // ✅ ถ้ายังไม่เจอ ลองใช้ frame ล่าสุดที่มี camId ใกล้เคียง
@@ -179,7 +370,10 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
                    camId.includes(fCamId) ||
                    fCamId.toLowerCase().includes(camId.toLowerCase());
           });
-          if (foundFrame) frame = foundFrame;
+          if (foundFrame) {
+            frame = foundFrame;
+            console.log('✅ Using frame with similar camId');
+          }
         }
         
         // ✅ ถ้ายังไม่เจอ ใช้ frame ล่าสุด
@@ -187,38 +381,56 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
           const allFrames = getAllFrames();
           if (allFrames.length > 0) {
             frame = allFrames[allFrames.length - 1];
+            console.log('✅ Using latest frame as fallback');
           }
         }
         
         if (frame) {
+          console.log('📸 Frame found:', {
+            source_id: frame.source_id,
+            cam_id: frame.cam_id,
+            frame_id: frame.frame_id,
+            fram_id: frame.fram_id
+          });
+          
           // ใช้ logic เดียวกับ CameraSidebar
           if ((frame as any).imageUrl) {
             url = (frame as any).imageUrl;
+            console.log('✅ Using frame.imageUrl:', url);
           } else if (frame.source_id && frame.frame_id) {
             // ✅ ใช้ API route ที่จะ proxy ไปยัง external server
             url = `/api/frames/${frame.source_id}/${frame.frame_id}.jpg`;
+            console.log('✅ Constructed URL from source_id and frame_id:', url);
           } else if (frame.fram_id) {
             const frameCamId = frame.cam_id || frame.source_id || camId;
             url = `/api/frames/${frameCamId}/${frame.fram_id}.jpg`;
+            console.log('✅ Constructed URL from fram_id:', url);
           } else {
             const frameId = frame.fram_id || frame.frame_id?.toString() || camId;
             url = `/api/frames/unknown/${frameId}.jpg`;
+            console.log('✅ Using fallback URL:', url);
           }
         } else if (camId) {
           // Fallback: ลองใช้ camId
           url = `/api/frames/${camId}/latest.jpg`;
+          console.log('✅ Using camId fallback URL:', url);
+        } else {
+          console.warn('⚠️ No frame found and no camId available');
         }
       }
       
-      // ✅ อัปเดต imageUrl state
-      if (url && url !== imageUrl) {
+      // ✅ อัปเดต imageUrl state (อัปเดตแม้ url จะเป็น undefined เพื่อ clear state)
+      if (url !== imageUrl) {
         console.log('🔄 Updating drone image URL:', {
           droneId: droneData.id,
           camId,
           oldUrl: imageUrl,
           newUrl: url
         });
-        setImageUrl(url);
+        setImageUrl(url || '');
+        setImageError(false); // Reset error state when URL changes
+      } else if (!url) {
+        console.warn('⚠️ No image URL calculated for drone:', droneData.id);
       }
     };
     
@@ -229,7 +441,7 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
     const interval = setInterval(calculateImageUrl, 2000);
     
     return () => clearInterval(interval);
-  }, [droneData.id, droneData.callsign, droneData.imageUrl, (droneData as any).camId, droneData.idCamera, imageUrl]);
+  }, [droneData.id, droneData.callsign, droneData.imageUrl, (droneData as any).camId, droneData.idCamera]);
 
   // Calculate MGRS from position
   const mgrsCoordinate = useMemo(() => {
@@ -286,10 +498,10 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
       {/* Drone Image */}
       <div className="px-4 pt-3">
         <div className="relative w-full h-48 bg-gradient-to-b from-blue-500/20 to-zinc-900 rounded-xl overflow-hidden border border-zinc-700 flex items-center justify-center">
-          {imageUrl || droneData.imageUrl ? (
+          {(liveImageUrl || imageUrl || droneData.imageUrl) && !imageError ? (
             <img 
-              key={`img-${droneData.id}-${imageUrl || droneData.imageUrl}`}
-              src={imageUrl || droneData.imageUrl}
+              key={`img-${droneData.id}-${liveImageUrl || imageUrl || droneData.imageUrl || 'no-url'}`}
+              src={liveImageUrl || imageUrl || droneData.imageUrl}
               alt={droneData.callsign}
               className="w-full h-full object-contain"
               onError={(e) => {
@@ -370,6 +582,7 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
                 }
                 
                 // ถ้าลองหมดแล้ว แสดง NO IMAGE
+                setImageError(true);
                 target.style.display = 'none';
                 const parent = target.parentElement;
                 if (parent && !parent.querySelector('.no-image-message')) {
@@ -382,9 +595,10 @@ export default function DroneDetail({ drone, onClose, onFollow, isFollowing, onS
               onLoad={() => {
                 console.log('✅ Drone image loaded:', {
                   droneId: droneData.id,
-                  url: imageUrl || droneData.imageUrl,
-                  source: 'api/frames route'
+                  url: liveImageUrl || imageUrl || droneData.imageUrl,
+                  source: liveImageUrl ? 'websocket' : 'api/frames route'
                 });
+                setImageError(false);
               }}
             />
           ) : (
